@@ -217,11 +217,14 @@ public struct ClaudeUsageFetcher: ClaudeUsageFetching, Sendable {
         case .auto:
             let oauthCreds = try? ClaudeOAuthCredentialsStore.load()
             let hasOAuthCredentials = oauthCreds?.scopes.contains("user:profile") ?? false
-            let hasWebSession = if let header = self.manualCookieHeader {
-                ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header)
-            } else {
-                ClaudeWebAPIFetcher.hasSessionKey()
-            }
+            let hasWebSession: Bool = {
+                #if os(macOS)
+                if let header = self.manualCookieHeader { return ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header) }
+                return ClaudeWebAPIFetcher.hasSessionKey()
+                #else
+                return false
+                #endif
+            }()
             if hasOAuthCredentials {
                 var snap = try await self.loadViaOAuth()
                 snap = await self.applyWebExtrasIfNeeded(to: snap)

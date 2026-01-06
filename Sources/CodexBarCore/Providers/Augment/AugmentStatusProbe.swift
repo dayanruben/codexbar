@@ -629,6 +629,8 @@ public struct AugmentStatusProbe: Sendable {
         _ = logger
         throw AugmentStatusProbeError.notSupported
     }
+
+    public static func latestDumps() async -> String { "No Augment probe dumps captured yet." }
 }
 
 #endif
