@@ -130,6 +130,7 @@ struct SettingsStoreTests {
             .zai,
             .minimax,
             .kiro,
+            .junie,
             .vertexai,
             .augment,
         ])
