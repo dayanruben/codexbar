@@ -77,7 +77,11 @@ struct AugmentStatusFetchStrategy: ProviderFetchStrategy {
         let probe = AugmentStatusProbe()
         let manual = Self.manualCookieHeader(from: context)
         let logger: ((String) -> Void)? = context.verbose ? { msg in print("[augment] \(msg)") } : nil
+        #if os(macOS)
         let snap = try await probe.fetch(cookieHeaderOverride: manual, logger: logger)
+        #else
+        let snap = try await probe.fetch(logger: logger)
+        #endif
         return self.makeResult(
             usage: snap.toUsageSnapshot(),
             sourceLabel: "web")

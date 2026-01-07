@@ -26,6 +26,7 @@ Cookie-based providers expose a Cookie source picker (Automatic or Manual) in Se
 | MiniMax | Manual cookie header (Keychain/env) → browser cookies (+ local storage access token) → coding plan page (HTML) with remains API fallback (`web`). |
 | Copilot | API token (device flow/env) → copilot_internal API (`api`). |
 | Kiro | CLI command via `kiro-cli chat --no-interactive "/usage"` (`cli`). |
+| Junie | CLI-based: runs `junie` inside a PTY and sends `"/usage"` (`cli`). |
 | Vertex AI | Google ADC OAuth (gcloud) → Cloud Monitoring quota usage (`oauth`). |
 
 ## Codex

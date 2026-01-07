@@ -151,7 +151,7 @@ public struct UsageSnapshot: Codable, Sendable {
         guard let identity else { return self }
         let scopedIdentity = identity.scoped(to: provider)
         if scopedIdentity.providerID == identity.providerID { return self }
-        return UsageSnapshot(
+        return UsageSnapshot.build(
             primary: self.primary,
             secondary: self.secondary,
             tertiary: self.tertiary,
@@ -507,7 +507,7 @@ public struct UsageFetcher: Sendable {
             loginMethod: account?.account.flatMap { details in
                 if case let .chatgpt(_, plan) = details { plan } else { nil }
             })
-        return UsageSnapshot(
+        return UsageSnapshot.build(
             primary: primary,
             secondary: secondary,
             tertiary: nil,
@@ -532,7 +532,7 @@ public struct UsageFetcher: Sendable {
             resetsAt: nil,
             resetDescription: status.weeklyResetDescription)
 
-        return UsageSnapshot(
+        return UsageSnapshot.build(
             primary: primary,
             secondary: secondary,
             tertiary: nil,

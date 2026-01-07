@@ -53,7 +53,12 @@ struct FactoryStatusFetchStrategy: ProviderFetchStrategy {
     func fetch(_ context: ProviderFetchContext) async throws -> ProviderFetchResult {
         let probe = FactoryStatusProbe()
         let manual = Self.manualCookieHeader(from: context)
+        #if os(macOS)
         let snap = try await probe.fetch(cookieHeaderOverride: manual)
+        #else
+        let logger: ((String) -> Void)? = context.verbose ? { msg in print("[factory] \(msg)") } : nil
+        let snap = try await probe.fetch(logger: logger)
+        #endif
         return self.makeResult(
             usage: snap.toUsageSnapshot(),
             sourceLabel: "web")

@@ -227,9 +227,10 @@ private struct ProviderSwitchChip: View {
 
     var body: some View {
         let label = self.compact ? self.shortLabel : self.longLabel
-        let background = self.selected
-            ? WidgetColors.color(for: self.provider).opacity(0.2)
-            : Color.primary.opacity(0.08)
+        let background =
+            self.selected
+                ? WidgetColors.color(for: self.provider).opacity(0.2)
+                : Color.primary.opacity(0.08)
 
         if let choice = ProviderChoice(provider: self.provider) {
             Button(intent: SwitchWidgetProviderIntent(provider: choice)) {
@@ -269,6 +270,7 @@ private struct ProviderSwitchChip: View {
         case .vertexai: "Vertex"
         case .kiro: "Kiro"
         case .augment: "Augment"
+        case .junie: "Junie"
         }
     }
 }
@@ -315,7 +317,8 @@ private struct SwitcherMediumUsageView: View {
             if let token = entry.tokenUsage {
                 ValueLine(
                     title: "Today",
-                    value: WidgetFormat.costAndTokens(cost: token.sessionCostUSD, tokens: token.sessionTokens))
+                    value: WidgetFormat.costAndTokens(
+                        cost: token.sessionCostUSD, tokens: token.sessionTokens))
             }
         }
     }
@@ -347,7 +350,8 @@ private struct SwitcherLargeUsageView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ValueLine(
                         title: "Today",
-                        value: WidgetFormat.costAndTokens(cost: token.sessionCostUSD, tokens: token.sessionTokens))
+                        value: WidgetFormat.costAndTokens(
+                            cost: token.sessionCostUSD, tokens: token.sessionTokens))
                     ValueLine(
                         title: "30d",
                         value: WidgetFormat.costAndTokens(
@@ -355,7 +359,8 @@ private struct SwitcherLargeUsageView: View {
                             tokens: token.last30DaysTokens))
                 }
             }
-            UsageHistoryChart(points: self.entry.dailyUsage, color: WidgetColors.color(for: self.entry.provider))
+            UsageHistoryChart(
+                points: self.entry.dailyUsage, color: WidgetColors.color(for: self.entry.provider))
                 .frame(height: 50)
         }
     }
@@ -406,7 +411,8 @@ private struct MediumUsageView: View {
             if let token = entry.tokenUsage {
                 ValueLine(
                     title: "Today",
-                    value: WidgetFormat.costAndTokens(cost: token.sessionCostUSD, tokens: token.sessionTokens))
+                    value: WidgetFormat.costAndTokens(
+                        cost: token.sessionCostUSD, tokens: token.sessionTokens))
             }
         }
         .padding(12)
@@ -440,7 +446,8 @@ private struct LargeUsageView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ValueLine(
                         title: "Today",
-                        value: WidgetFormat.costAndTokens(cost: token.sessionCostUSD, tokens: token.sessionTokens))
+                        value: WidgetFormat.costAndTokens(
+                            cost: token.sessionCostUSD, tokens: token.sessionTokens))
                     ValueLine(
                         title: "30d",
                         value: WidgetFormat.costAndTokens(
@@ -448,7 +455,8 @@ private struct LargeUsageView: View {
                             tokens: token.last30DaysTokens))
                 }
             }
-            UsageHistoryChart(points: self.entry.dailyUsage, color: WidgetColors.color(for: self.entry.provider))
+            UsageHistoryChart(
+                points: self.entry.dailyUsage, color: WidgetColors.color(for: self.entry.provider))
                 .frame(height: 50)
         }
         .padding(12)
@@ -462,15 +470,18 @@ private struct HistoryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HeaderView(provider: self.entry.provider, updatedAt: self.entry.updatedAt)
-            UsageHistoryChart(points: self.entry.dailyUsage, color: WidgetColors.color(for: self.entry.provider))
+            UsageHistoryChart(
+                points: self.entry.dailyUsage, color: WidgetColors.color(for: self.entry.provider))
                 .frame(height: self.isLarge ? 90 : 60)
             if let token = entry.tokenUsage {
                 ValueLine(
                     title: "Today",
-                    value: WidgetFormat.costAndTokens(cost: token.sessionCostUSD, tokens: token.sessionTokens))
+                    value: WidgetFormat.costAndTokens(
+                        cost: token.sessionCostUSD, tokens: token.sessionTokens))
                 ValueLine(
                     title: "30d",
-                    value: WidgetFormat.costAndTokens(cost: token.last30DaysCostUSD, tokens: token.last30DaysTokens))
+                    value: WidgetFormat.costAndTokens(
+                        cost: token.last30DaysCostUSD, tokens: token.last30DaysTokens))
             }
         }
         .padding(12)
@@ -483,7 +494,9 @@ private struct HeaderView: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(ProviderDefaults.metadata[self.provider]?.displayName ?? self.provider.rawValue.capitalized)
+            Text(
+                ProviderDefaults.metadata[self.provider]?.displayName
+                    ?? self.provider.rawValue.capitalized)
                 .font(.body)
                 .fontWeight(.semibold)
             Spacer()
@@ -587,6 +600,8 @@ enum WidgetColors {
             Color(red: 255 / 255, green: 153 / 255, blue: 0 / 255) // AWS orange
         case .augment:
             Color(red: 99 / 255, green: 102 / 255, blue: 241 / 255) // Augment purple
+        case .junie:
+            Color(red: 119 / 255, green: 221 / 255, blue: 103 / 255) // Junie green
         }
     }
 }

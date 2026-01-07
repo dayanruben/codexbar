@@ -150,9 +150,11 @@ struct ClaudeWebFetchStrategy: ProviderFetchStrategy {
     let kind: ProviderFetchKind = .web
 
     func isAvailable(_ context: ProviderFetchContext) async -> Bool {
+        #if os(macOS)
         if let header = Self.manualCookieHeader(from: context) {
             return ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header)
         }
+        #endif
         guard context.settings?.claude?.cookieSource != .off else { return false }
         return ClaudeWebAPIFetcher.hasSessionKey()
     }

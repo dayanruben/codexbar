@@ -720,8 +720,6 @@ public struct OpenAIDashboardBrowserCookieImporter {
                     .map { "\($0.sourceLabel)=\($0.email)" }
                     .joined(separator: ", ")
                 return "OpenAI web session does not match Codex account. Found: \(display)."
-            case .manualCookieHeaderInvalid:
-                return "Manual cookie header is missing a valid OpenAI session cookie."
             }
         }
     }
