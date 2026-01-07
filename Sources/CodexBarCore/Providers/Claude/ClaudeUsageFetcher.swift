@@ -219,7 +219,8 @@ public struct ClaudeUsageFetcher: ClaudeUsageFetching, Sendable {
             let hasOAuthCredentials = oauthCreds?.scopes.contains("user:profile") ?? false
             let hasWebSession: Bool = {
                 #if os(macOS)
-                if let header = self.manualCookieHeader { return ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header) }
+                if let header = self
+                    .manualCookieHeader { return ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header) }
                 return ClaudeWebAPIFetcher.hasSessionKey()
                 #else
                 return false

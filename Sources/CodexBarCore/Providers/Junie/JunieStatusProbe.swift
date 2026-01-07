@@ -96,9 +96,15 @@ public struct JunieStatusProbe: Sendable {
         }
 
         // Try to parse a percent remaining like "Session: 72% left" or just "72% left"
-        let percentRegex = try! NSRegularExpression(pattern: #"(\d{1,3})%\s*(left|remaining)"#, options: [.caseInsensitive])
+        let percentRegex = try! NSRegularExpression(
+            pattern: #"(\d{1,3})%\s*(left|remaining)"#,
+            options: [.caseInsensitive])
         var primary: RateWindow?
-        if let match = percentRegex.firstMatch(in: cleaned, options: [], range: NSRange(cleaned.startIndex..., in: cleaned)) {
+        if let match = percentRegex.firstMatch(
+            in: cleaned,
+            options: [],
+            range: NSRange(cleaned.startIndex..., in: cleaned))
+        {
             if let range = Range(match.range(at: 1), in: cleaned) {
                 let val = Double(cleaned[range]) ?? 0
                 let used = max(0, min(100, 100 - val))

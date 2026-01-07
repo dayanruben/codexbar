@@ -1,7 +1,7 @@
 import Foundation
 
-public extension UsageSnapshot {
-    static func build(
+extension UsageSnapshot {
+    public static func build(
         primary: RateWindow?,
         secondary: RateWindow?,
         tertiary: RateWindow? = nil,
