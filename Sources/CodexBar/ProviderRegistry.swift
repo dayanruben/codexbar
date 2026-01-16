@@ -66,6 +66,10 @@ struct ProviderRegistry {
                             cursor: ProviderSettingsSnapshot.CursorProviderSettings(
                                 cookieSource: settings.cursorCookieSource,
                                 manualCookieHeader: settings.cursorCookieHeader),
+                            opencode: ProviderSettingsSnapshot.OpenCodeProviderSettings(
+                                cookieSource: settings.opencodeCookieSource,
+                                manualCookieHeader: settings.opencodeCookieHeader,
+                                workspaceID: settings.opencodeWorkspaceID),
                             factory: ProviderSettingsSnapshot.FactoryProviderSettings(
                                 cookieSource: settings.factoryCookieSource,
                                 manualCookieHeader: settings.factoryCookieHeader),
