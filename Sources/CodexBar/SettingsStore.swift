@@ -33,9 +33,28 @@ enum RefreshFrequency: String, CaseIterable, Identifiable {
     }
 }
 
+enum MenuBarMetricPreference: String, CaseIterable, Identifiable {
+    case automatic
+    case primary
+    case secondary
+    case average
+
+    var id: String { self.rawValue }
+
+    var label: String {
+        switch self {
+        case .automatic: "Automatic"
+        case .primary: "Primary"
+        case .secondary: "Secondary"
+        case .average: "Average"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class SettingsStore {
+    private static let sharedDefaults = UserDefaults(suiteName: "group.com.steipete.codexbar")
     /// Persisted provider display order.
     ///
     /// Stored as raw `UsageProvider` strings so new providers can be appended automatically without breaking.
@@ -58,6 +77,15 @@ final class SettingsStore {
     /// -bool YES).
     var debugMenuEnabled: Bool {
         didSet { self.userDefaults.set(self.debugMenuEnabled, forKey: "debugMenuEnabled") }
+    }
+
+    /// Debug-only: disable all Keychain access and hide cookie-based web options.
+    var debugDisableKeychainAccess: Bool {
+        didSet {
+            self.userDefaults.set(self.debugDisableKeychainAccess, forKey: "debugDisableKeychainAccess")
+            Self.sharedDefaults?.set(self.debugDisableKeychainAccess, forKey: "debugDisableKeychainAccess")
+            KeychainAccessGate.isDisabled = self.debugDisableKeychainAccess
+        }
     }
 
     private var debugLoadingPatternRaw: String? {
@@ -97,9 +125,24 @@ final class SettingsStore {
         }
     }
 
+    /// Optional: show all token accounts stacked in the menu (otherwise show a switcher bar).
+    var showAllTokenAccountsInMenu: Bool {
+        didSet { self.userDefaults.set(self.showAllTokenAccountsInMenu, forKey: "showAllTokenAccountsInMenu") }
+    }
+
+    /// Optional: choose which quota window drives the menu bar percentage.
+    private var menuBarMetricPreferencesRaw: [String: String] {
+        didSet { self.userDefaults.set(self.menuBarMetricPreferencesRaw, forKey: "menuBarMetricPreferences") }
+    }
+
     /// Optional: show provider cost summary from local usage logs (Codex + Claude).
     var costUsageEnabled: Bool {
         didSet { self.userDefaults.set(self.costUsageEnabled, forKey: "tokenCostUsageEnabled") }
+    }
+
+    /// Optional: hide personal info (emails) in menu bar + menu content.
+    var hidePersonalInfo: Bool {
+        didSet { self.userDefaults.set(self.hidePersonalInfo, forKey: "hidePersonalInfo") }
     }
 
     var randomBlinkEnabled: Bool {
@@ -109,7 +152,12 @@ final class SettingsStore {
     /// Optional: augment Claude usage with claude.ai web API (via browser cookies),
     /// incl. "Extra usage" spend.
     var claudeWebExtrasEnabled: Bool {
-        didSet { self.userDefaults.set(self.claudeWebExtrasEnabled, forKey: "claudeWebExtrasEnabled") }
+        get { self.debugDisableKeychainAccess ? false : self.claudeWebExtrasEnabledRaw }
+        set { self.claudeWebExtrasEnabledRaw = newValue }
+    }
+
+    private var claudeWebExtrasEnabledRaw: Bool {
+        didSet { self.userDefaults.set(self.claudeWebExtrasEnabledRaw, forKey: "claudeWebExtrasEnabled") }
     }
 
     /// Optional: show Codex credits + Claude extra usage sections in the menu UI.
@@ -214,12 +262,32 @@ final class SettingsStore {
         }
     }
 
+    private var kimiCookieSourceRaw: String? {
+        didSet {
+            if let raw = self.kimiCookieSourceRaw {
+                self.userDefaults.set(raw, forKey: "kimiCookieSource")
+            } else {
+                self.userDefaults.removeObject(forKey: "kimiCookieSource")
+            }
+        }
+    }
+
     private var augmentCookieSourceRaw: String? {
         didSet {
             if let raw = self.augmentCookieSourceRaw {
                 self.userDefaults.set(raw, forKey: "augmentCookieSource")
             } else {
                 self.userDefaults.removeObject(forKey: "augmentCookieSource")
+            }
+        }
+    }
+
+    private var ampCookieSourceRaw: String? {
+        didSet {
+            if let raw = self.ampCookieSourceRaw {
+                self.userDefaults.set(raw, forKey: "ampCookieSource")
+            } else {
+                self.userDefaults.removeObject(forKey: "ampCookieSource")
             }
         }
     }
@@ -232,6 +300,16 @@ final class SettingsStore {
     /// Optional: show provider icons in the in-menu switcher.
     var switcherShowsIcons: Bool {
         didSet { self.userDefaults.set(self.switcherShowsIcons, forKey: "switcherShowsIcons") }
+    }
+
+    /// MiniMax API region (stored in UserDefaults).
+    var minimaxAPIRegion: MiniMaxAPIRegion {
+        didSet { self.userDefaults.set(self.minimaxAPIRegion.rawValue, forKey: "minimaxAPIRegion") }
+    }
+
+    /// z.ai API region (stored in UserDefaults).
+    var zaiAPIRegion: ZaiAPIRegion {
+        didSet { self.userDefaults.set(self.zaiAPIRegion.rawValue, forKey: "zaiAPIRegion") }
     }
 
     /// z.ai API token (stored in Keychain).
@@ -273,9 +351,14 @@ final class SettingsStore {
         didSet { self.schedulePersistFactoryCookieHeader() }
     }
 
-    /// MiniMax cookie header (stored in Keychain).
+    /// MiniMax session cookie header (stored in Keychain).
     var minimaxCookieHeader: String {
         didSet { self.schedulePersistMiniMaxCookieHeader() }
+    }
+
+    /// MiniMax API token (stored in Keychain).
+    var minimaxAPIToken: String {
+        didSet { self.schedulePersistMiniMaxAPIToken() }
     }
 
     /// Augment session cookie header (stored in Keychain).
@@ -283,9 +366,29 @@ final class SettingsStore {
         didSet { self.schedulePersistAugmentCookieHeader() }
     }
 
+    /// Amp session cookie header (stored in Keychain).
+    var ampCookieHeader: String {
+        didSet { self.schedulePersistAmpCookieHeader() }
+    }
+
     /// Copilot API token (stored in Keychain).
     var copilotAPIToken: String {
         didSet { self.schedulePersistCopilotAPIToken() }
+    }
+
+    /// Kimi auth token (stored in Keychain).
+    var kimiManualCookieHeader: String {
+        didSet { self.schedulePersistKimiAuthToken() }
+    }
+
+    /// Kimi K2 API token (stored in Keychain).
+    var kimiK2APIToken: String {
+        didSet { self.schedulePersistKimiK2APIToken() }
+    }
+
+    /// Token accounts loaded from the local config file.
+    var tokenAccountsByProvider: [UsageProvider: ProviderTokenAccountData] {
+        didSet { self.schedulePersistTokenAccounts() }
     }
 
     private var selectedMenuProviderRaw: String? {
@@ -335,7 +438,10 @@ final class SettingsStore {
     }
 
     var codexCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.codexCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.codexCookieSourceRaw ?? "") ?? .auto
+        }
         set {
             self.codexCookieSourceRaw = newValue.rawValue
             self.openAIWebAccessEnabled = newValue.isEnabled
@@ -343,73 +449,64 @@ final class SettingsStore {
     }
 
     var claudeCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.claudeCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.claudeCookieSourceRaw ?? "") ?? .auto
+        }
         set { self.claudeCookieSourceRaw = newValue.rawValue }
     }
 
     var cursorCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.cursorCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.cursorCookieSourceRaw ?? "") ?? .auto
+        }
         set { self.cursorCookieSourceRaw = newValue.rawValue }
     }
 
     var opencodeCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.opencodeCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.opencodeCookieSourceRaw ?? "") ?? .auto
+        }
         set { self.opencodeCookieSourceRaw = newValue.rawValue }
     }
 
     var factoryCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.factoryCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.factoryCookieSourceRaw ?? "") ?? .auto
+        }
         set { self.factoryCookieSourceRaw = newValue.rawValue }
     }
 
     var minimaxCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.minimaxCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.minimaxCookieSourceRaw ?? "") ?? .auto
+        }
         set { self.minimaxCookieSourceRaw = newValue.rawValue }
     }
 
+    var kimiCookieSource: ProviderCookieSource {
+        get { ProviderCookieSource(rawValue: self.kimiCookieSourceRaw ?? "") ?? .auto }
+        set { self.kimiCookieSourceRaw = newValue.rawValue }
+    }
+
     var augmentCookieSource: ProviderCookieSource {
-        get { ProviderCookieSource(rawValue: self.augmentCookieSourceRaw ?? "") ?? .auto }
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.augmentCookieSourceRaw ?? "") ?? .auto
+        }
         set { self.augmentCookieSourceRaw = newValue.rawValue }
     }
 
-    var menuObservationToken: Int {
-        _ = self.providerOrderRaw
-        _ = self.refreshFrequency
-        _ = self.launchAtLogin
-        _ = self.debugMenuEnabled
-        _ = self.statusChecksEnabled
-        _ = self.sessionQuotaNotificationsEnabled
-        _ = self.usageBarsShowUsed
-        _ = self.resetTimesShowAbsolute
-        _ = self.menuBarShowsBrandIconWithPercent
-        _ = self.costUsageEnabled
-        _ = self.randomBlinkEnabled
-        _ = self.claudeWebExtrasEnabled
-        _ = self.showOptionalCreditsAndExtraUsage
-        _ = self.openAIWebAccessEnabled
-        _ = self.codexUsageDataSource
-        _ = self.claudeUsageDataSource
-        _ = self.codexCookieSource
-        _ = self.claudeCookieSource
-        _ = self.cursorCookieSource
-        _ = self.opencodeCookieSource
-        _ = self.factoryCookieSource
-        _ = self.minimaxCookieSource
-        _ = self.mergeIcons
-        _ = self.switcherShowsIcons
-        _ = self.zaiAPIToken
-        _ = self.codexCookieHeader
-        _ = self.claudeCookieHeader
-        _ = self.cursorCookieHeader
-        _ = self.opencodeCookieHeader
-        _ = self.opencodeWorkspaceID
-        _ = self.factoryCookieHeader
-        _ = self.minimaxCookieHeader
-        _ = self.copilotAPIToken
-        _ = self.debugLoadingPattern
-        _ = self.selectedMenuProvider
-        _ = self.providerToggleRevision
-        return 0
+    var ampCookieSource: ProviderCookieSource {
+        get {
+            guard !self.debugDisableKeychainAccess else { return .off }
+            return ProviderCookieSource(rawValue: self.ampCookieSourceRaw ?? "") ?? .auto
+        }
+        set { self.ampCookieSourceRaw = newValue.rawValue }
     }
 
     private var providerDetectionCompleted: Bool {
@@ -446,14 +543,34 @@ final class SettingsStore {
     @ObservationIgnored private var minimaxCookiePersistTask: Task<Void, Never>?
     @ObservationIgnored private var minimaxCookieLoaded = false
     @ObservationIgnored private var minimaxCookieLoading = false
+    @ObservationIgnored private let minimaxAPITokenStore: any MiniMaxAPITokenStoring
+    @ObservationIgnored private var minimaxAPITokenPersistTask: Task<Void, Never>?
+    @ObservationIgnored private var minimaxAPITokenLoaded = false
+    @ObservationIgnored private var minimaxAPITokenLoading = false
+    @ObservationIgnored private let kimiTokenStore: any KimiTokenStoring
+    @ObservationIgnored private var kimiTokenPersistTask: Task<Void, Never>?
+    @ObservationIgnored private var kimiTokenLoaded = false
+    @ObservationIgnored private var kimiTokenLoading = false
+    @ObservationIgnored private let kimiK2TokenStore: any KimiK2TokenStoring
+    @ObservationIgnored private var kimiK2TokenPersistTask: Task<Void, Never>?
+    @ObservationIgnored private var kimiK2TokenLoaded = false
+    @ObservationIgnored private var kimiK2TokenLoading = false
     @ObservationIgnored private let augmentCookieStore: any CookieHeaderStoring
     @ObservationIgnored private var augmentCookiePersistTask: Task<Void, Never>?
     @ObservationIgnored private var augmentCookieLoaded = false
     @ObservationIgnored private var augmentCookieLoading = false
+    @ObservationIgnored private let ampCookieStore: any CookieHeaderStoring
+    @ObservationIgnored private var ampCookiePersistTask: Task<Void, Never>?
+    @ObservationIgnored private var ampCookieLoaded = false
+    @ObservationIgnored private var ampCookieLoading = false
     @ObservationIgnored private let copilotTokenStore: any CopilotTokenStoring
     @ObservationIgnored private var copilotTokenPersistTask: Task<Void, Never>?
     @ObservationIgnored private var copilotTokenLoaded = false
     @ObservationIgnored private var copilotTokenLoading = false
+    @ObservationIgnored private let tokenAccountStore: any ProviderTokenAccountStoring
+    @ObservationIgnored private var tokenAccountsPersistTask: Task<Void, Never>?
+    @ObservationIgnored private var tokenAccountsLoaded = false
+    @ObservationIgnored private var tokenAccountsLoading = false
     // Cache enablement so tight UI loops (menu bar animations) don't hit UserDefaults each tick.
     @ObservationIgnored private var cachedProviderEnablement: [UsageProvider: Bool] = [:]
     @ObservationIgnored private var cachedProviderEnablementRevision: Int = -1
@@ -484,10 +601,17 @@ final class SettingsStore {
             account: "factory-cookie",
             promptKind: .factoryCookie),
         minimaxCookieStore: any MiniMaxCookieStoring = KeychainMiniMaxCookieStore(),
+        minimaxAPITokenStore: any MiniMaxAPITokenStoring = KeychainMiniMaxAPITokenStore(),
+        kimiTokenStore: any KimiTokenStoring = KeychainKimiTokenStore(),
+        kimiK2TokenStore: any KimiK2TokenStoring = KeychainKimiK2TokenStore(),
         augmentCookieStore: any CookieHeaderStoring = KeychainCookieHeaderStore(
             account: "augment-cookie",
             promptKind: .augmentCookie),
-        copilotTokenStore: any CopilotTokenStoring = KeychainCopilotTokenStore())
+        ampCookieStore: any CookieHeaderStoring = KeychainCookieHeaderStore(
+            account: "amp-cookie",
+            promptKind: .ampCookie),
+        copilotTokenStore: any CopilotTokenStoring = KeychainCopilotTokenStore(),
+        tokenAccountStore: any ProviderTokenAccountStoring = FileTokenAccountStore())
     {
         self.userDefaults = userDefaults
         self.zaiTokenStore = zaiTokenStore
@@ -497,13 +621,26 @@ final class SettingsStore {
         self.opencodeCookieStore = opencodeCookieStore
         self.factoryCookieStore = factoryCookieStore
         self.minimaxCookieStore = minimaxCookieStore
+        self.minimaxAPITokenStore = minimaxAPITokenStore
+        self.kimiTokenStore = kimiTokenStore
+        self.kimiK2TokenStore = kimiK2TokenStore
         self.augmentCookieStore = augmentCookieStore
+        self.ampCookieStore = ampCookieStore
         self.copilotTokenStore = copilotTokenStore
+        self.tokenAccountStore = tokenAccountStore
         self.providerOrderRaw = userDefaults.stringArray(forKey: "providerOrder") ?? []
         let raw = userDefaults.string(forKey: "refreshFrequency") ?? RefreshFrequency.fiveMinutes.rawValue
         self.refreshFrequency = RefreshFrequency(rawValue: raw) ?? .fiveMinutes
         self.launchAtLogin = userDefaults.object(forKey: "launchAtLogin") as? Bool ?? false
         self.debugMenuEnabled = userDefaults.object(forKey: "debugMenuEnabled") as? Bool ?? false
+        if let stored = userDefaults.object(forKey: "debugDisableKeychainAccess") as? Bool {
+            self.debugDisableKeychainAccess = stored
+        } else if let shared = Self.sharedDefaults?.object(forKey: "debugDisableKeychainAccess") as? Bool {
+            self.debugDisableKeychainAccess = shared
+            userDefaults.set(shared, forKey: "debugDisableKeychainAccess")
+        } else {
+            self.debugDisableKeychainAccess = false
+        }
         self.debugLoadingPatternRaw = userDefaults.string(forKey: "debugLoadingPattern")
         self.statusChecksEnabled = userDefaults.object(forKey: "statusChecksEnabled") as? Bool ?? true
         let sessionQuotaNotificationsDefault = userDefaults.object(
@@ -516,9 +653,23 @@ final class SettingsStore {
         self.resetTimesShowAbsolute = userDefaults.object(forKey: "resetTimesShowAbsolute") as? Bool ?? false
         self.menuBarShowsBrandIconWithPercent = userDefaults.object(
             forKey: "menuBarShowsBrandIconWithPercent") as? Bool ?? false
+        self.showAllTokenAccountsInMenu = userDefaults.object(
+            forKey: "showAllTokenAccountsInMenu") as? Bool ?? false
+        let storedMenuBarMetricPreferences = userDefaults.dictionary(
+            forKey: "menuBarMetricPreferences") as? [String: String] ?? [:]
+        var resolvedMenuBarMetricPreferences = storedMenuBarMetricPreferences
+        if resolvedMenuBarMetricPreferences.isEmpty,
+           let menuBarMetricRaw = userDefaults.string(forKey: "menuBarMetricPreference"),
+           let legacyPreference = MenuBarMetricPreference(rawValue: menuBarMetricRaw)
+        {
+            resolvedMenuBarMetricPreferences = Dictionary(
+                uniqueKeysWithValues: UsageProvider.allCases.map { ($0.rawValue, legacyPreference.rawValue) })
+        }
+        self.menuBarMetricPreferencesRaw = resolvedMenuBarMetricPreferences
         self.costUsageEnabled = userDefaults.object(forKey: "tokenCostUsageEnabled") as? Bool ?? false
+        self.hidePersonalInfo = userDefaults.object(forKey: "hidePersonalInfo") as? Bool ?? false
         self.randomBlinkEnabled = userDefaults.object(forKey: "randomBlinkEnabled") as? Bool ?? false
-        self.claudeWebExtrasEnabled = userDefaults.object(forKey: "claudeWebExtrasEnabled") as? Bool ?? false
+        self.claudeWebExtrasEnabledRaw = userDefaults.object(forKey: "claudeWebExtrasEnabled") as? Bool ?? false
         let creditsExtrasDefault = userDefaults.object(forKey: "showOptionalCreditsAndExtraUsage") as? Bool
         self.showOptionalCreditsAndExtraUsage = creditsExtrasDefault ?? true
         if creditsExtrasDefault == nil {
@@ -552,10 +703,19 @@ final class SettingsStore {
             ?? ProviderCookieSource.auto.rawValue
         self.minimaxCookieSourceRaw = userDefaults.string(forKey: "minimaxCookieSource")
             ?? ProviderCookieSource.auto.rawValue
+        self.kimiCookieSourceRaw = userDefaults.string(forKey: "kimiCookieSource")
+            ?? ProviderCookieSource.auto.rawValue
         self.augmentCookieSourceRaw = userDefaults.string(forKey: "augmentCookieSource")
+            ?? ProviderCookieSource.auto.rawValue
+        self.ampCookieSourceRaw = userDefaults.string(forKey: "ampCookieSource")
             ?? ProviderCookieSource.auto.rawValue
         self.mergeIcons = userDefaults.object(forKey: "mergeIcons") as? Bool ?? true
         self.switcherShowsIcons = userDefaults.object(forKey: "switcherShowsIcons") as? Bool ?? true
+        let minimaxAPIRegionRaw = userDefaults.string(forKey: "minimaxAPIRegion")
+        self.minimaxAPIRegion =
+            MiniMaxAPIRegion(rawValue: minimaxAPIRegionRaw ?? MiniMaxAPIRegion.global.rawValue) ?? .global
+        let zaiAPIRegionRaw = userDefaults.string(forKey: "zaiAPIRegion")
+        self.zaiAPIRegion = ZaiAPIRegion(rawValue: zaiAPIRegionRaw ?? ZaiAPIRegion.global.rawValue) ?? .global
         self.zaiAPIToken = ""
         self.codexCookieHeader = ""
         self.claudeCookieHeader = ""
@@ -563,8 +723,13 @@ final class SettingsStore {
         self.opencodeCookieHeader = ""
         self.factoryCookieHeader = ""
         self.minimaxCookieHeader = ""
+        self.minimaxAPIToken = ""
+        self.kimiManualCookieHeader = ""
+        self.kimiK2APIToken = ""
         self.augmentCookieHeader = ""
+        self.ampCookieHeader = ""
         self.copilotAPIToken = ""
+        self.tokenAccountsByProvider = [:]
         self.selectedMenuProviderRaw = userDefaults.string(forKey: "selectedMenuProvider")
         self.providerDetectionCompleted = userDefaults.object(
             forKey: "providerDetectionCompleted") as? Bool ?? false
@@ -577,6 +742,8 @@ final class SettingsStore {
             self.claudeWebExtrasEnabled = false
         }
         self.openAIWebAccessEnabled = self.codexCookieSource.isEnabled
+        Self.sharedDefaults?.set(self.debugDisableKeychainAccess, forKey: "debugDisableKeychainAccess")
+        KeychainAccessGate.isDisabled = self.debugDisableKeychainAccess
     }
 
     func orderedProviders() -> [UsageProvider] {
@@ -961,6 +1128,32 @@ extension SettingsStore {
         }
     }
 
+    private func schedulePersistAmpCookieHeader() {
+        if self.ampCookieLoading { return }
+        self.ampCookiePersistTask?.cancel()
+        let header = self.ampCookieHeader
+        let cookieStore = self.ampCookieStore
+        self.ampCookiePersistTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            let error: (any Error)? = await Task.detached(priority: .utility) { () -> (any Error)? in
+                do {
+                    try cookieStore.storeCookieHeader(header)
+                    return nil
+                } catch {
+                    return error
+                }
+            }.value
+            if let error {
+                CodexBarLog.logger("amp-cookie-store").error("Failed to persist Amp cookie: \(error)")
+            }
+        }
+    }
+
     private func schedulePersistFactoryCookieHeader() {
         if self.factoryCookieLoading { return }
         self.factoryCookiePersistTask?.cancel()
@@ -1013,6 +1206,32 @@ extension SettingsStore {
         }
     }
 
+    private func schedulePersistMiniMaxAPIToken() {
+        if self.minimaxAPITokenLoading { return }
+        self.minimaxAPITokenPersistTask?.cancel()
+        let token = self.minimaxAPIToken
+        let tokenStore = self.minimaxAPITokenStore
+        self.minimaxAPITokenPersistTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            let error: (any Error)? = await Task.detached(priority: .utility) { () -> (any Error)? in
+                do {
+                    try tokenStore.storeToken(token)
+                    return nil
+                } catch {
+                    return error
+                }
+            }.value
+            if let error {
+                CodexBarLog.logger("minimax-api-token-store").error("Failed to persist MiniMax API token: \(error)")
+            }
+        }
+    }
+
     private func schedulePersistCopilotAPIToken() {
         if self.copilotTokenLoading { return }
         self.copilotTokenPersistTask?.cancel()
@@ -1038,9 +1257,109 @@ extension SettingsStore {
             }
         }
     }
+
+    private func schedulePersistTokenAccounts() {
+        if self.tokenAccountsLoading { return }
+        self.tokenAccountsPersistTask?.cancel()
+        let accounts = self.tokenAccountsByProvider
+        let tokenStore = self.tokenAccountStore
+        self.tokenAccountsPersistTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            let error: (any Error)? = await Task.detached(priority: .utility) { () -> (any Error)? in
+                do {
+                    try tokenStore.storeAccounts(accounts)
+                    return nil
+                } catch {
+                    return error
+                }
+            }.value
+            if let error {
+                CodexBarLog.logger("token-account-store").error("Failed to persist token accounts: \(error)")
+            }
+        }
+    }
 }
 
 extension SettingsStore {
+    func menuBarMetricPreference(for provider: UsageProvider) -> MenuBarMetricPreference {
+        if provider == .zai { return .primary }
+        let raw = self.menuBarMetricPreferencesRaw[provider.rawValue] ?? ""
+        let preference = MenuBarMetricPreference(rawValue: raw) ?? .automatic
+        if preference == .average, !self.menuBarMetricSupportsAverage(for: provider) {
+            return .automatic
+        }
+        return preference
+    }
+
+    func setMenuBarMetricPreference(_ preference: MenuBarMetricPreference, for provider: UsageProvider) {
+        if provider == .zai {
+            self.menuBarMetricPreferencesRaw[provider.rawValue] = MenuBarMetricPreference.primary.rawValue
+            return
+        }
+        self.menuBarMetricPreferencesRaw[provider.rawValue] = preference.rawValue
+    }
+
+    func menuBarMetricSupportsAverage(for provider: UsageProvider) -> Bool {
+        provider == .gemini
+    }
+
+    private func schedulePersistKimiAuthToken() {
+        if self.kimiTokenLoading { return }
+        self.kimiTokenPersistTask?.cancel()
+        let token = self.kimiManualCookieHeader
+        let tokenStore = self.kimiTokenStore
+        self.kimiTokenPersistTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            let error: (any Error)? = await Task.detached(priority: .utility) { () -> (any Error)? in
+                do {
+                    try tokenStore.storeToken(token)
+                    return nil
+                } catch {
+                    return error
+                }
+            }.value
+            if let error {
+                CodexBarLog.logger("kimi-token-store").error("Failed to persist Kimi token: \(error)")
+            }
+        }
+    }
+
+    private func schedulePersistKimiK2APIToken() {
+        if self.kimiK2TokenLoading { return }
+        self.kimiK2TokenPersistTask?.cancel()
+        let token = self.kimiK2APIToken
+        let tokenStore = self.kimiK2TokenStore
+        self.kimiK2TokenPersistTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            let error: (any Error)? = await Task.detached(priority: .utility) { () -> (any Error)? in
+                do {
+                    try tokenStore.storeToken(token)
+                    return nil
+                } catch {
+                    return error
+                }
+            }.value
+            if let error {
+                CodexBarLog.logger("kimi-k2-token-store").error("Failed to persist Kimi K2 token: \(error)")
+            }
+        }
+    }
+
     func ensureZaiAPITokenLoaded() {
         guard !self.zaiTokenLoaded else { return }
         self.zaiTokenLoading = true
@@ -1089,12 +1408,52 @@ extension SettingsStore {
         self.factoryCookieLoaded = true
     }
 
+    func minimaxAuthMode(
+        environment: [String: String] = ProcessInfo.processInfo.environment) -> MiniMaxAuthMode
+    {
+        let apiToken = MiniMaxAPISettingsReader.apiToken(environment: environment) ?? self.minimaxAPIToken
+        let cookieHeader = MiniMaxSettingsReader.cookieHeader(environment: environment) ?? self.minimaxCookieHeader
+        return MiniMaxAuthMode.resolve(apiToken: apiToken, cookieHeader: cookieHeader)
+    }
+
     func ensureMiniMaxCookieLoaded() {
         guard !self.minimaxCookieLoaded else { return }
         self.minimaxCookieLoading = true
         self.minimaxCookieHeader = (try? self.minimaxCookieStore.loadCookieHeader()) ?? ""
         self.minimaxCookieLoading = false
         self.minimaxCookieLoaded = true
+    }
+
+    func ensureMiniMaxAPITokenLoaded() {
+        guard !self.minimaxAPITokenLoaded else { return }
+        self.minimaxAPITokenLoading = true
+        self.minimaxAPIToken = (try? self.minimaxAPITokenStore.loadToken()) ?? ""
+        self.minimaxAPITokenLoading = false
+        self.minimaxAPITokenLoaded = true
+    }
+
+    func ensureKimiAuthTokenLoaded() {
+        guard !self.kimiTokenLoaded else { return }
+        self.kimiTokenLoading = true
+        var token = (try? self.kimiTokenStore.loadToken()) ?? ""
+        if token.isEmpty {
+            if let oldToken = self.userDefaults.string(forKey: "kimiManualCookieHeader"), !oldToken.isEmpty {
+                token = oldToken
+                try? self.kimiTokenStore.storeToken(oldToken)
+                self.userDefaults.removeObject(forKey: "kimiManualCookieHeader")
+            }
+        }
+        self.kimiManualCookieHeader = token
+        self.kimiTokenLoading = false
+        self.kimiTokenLoaded = true
+    }
+
+    func ensureKimiK2APITokenLoaded() {
+        guard !self.kimiK2TokenLoaded else { return }
+        self.kimiK2TokenLoading = true
+        self.kimiK2APIToken = (try? self.kimiK2TokenStore.loadToken()) ?? ""
+        self.kimiK2TokenLoading = false
+        self.kimiK2TokenLoaded = true
     }
 
     func ensureAugmentCookieLoaded() {
@@ -1105,12 +1464,139 @@ extension SettingsStore {
         self.augmentCookieLoaded = true
     }
 
+    func ensureAmpCookieLoaded() {
+        guard !self.ampCookieLoaded else { return }
+        self.ampCookieLoading = true
+        self.ampCookieHeader = (try? self.ampCookieStore.loadCookieHeader()) ?? ""
+        self.ampCookieLoading = false
+        self.ampCookieLoaded = true
+    }
+
     func ensureCopilotAPITokenLoaded() {
         guard !self.copilotTokenLoaded else { return }
         self.copilotTokenLoading = true
         self.copilotAPIToken = (try? self.copilotTokenStore.loadToken()) ?? ""
         self.copilotTokenLoading = false
         self.copilotTokenLoaded = true
+    }
+
+    func ensureTokenAccountsLoaded() {
+        guard !self.tokenAccountsLoaded else { return }
+        self.tokenAccountsLoading = true
+        self.tokenAccountsByProvider = (try? self.tokenAccountStore.loadAccounts()) ?? [:]
+        for (provider, data) in self.tokenAccountsByProvider where !data.accounts.isEmpty {
+            self.applyTokenAccountSideEffects(for: provider)
+        }
+        self.tokenAccountsLoading = false
+        self.tokenAccountsLoaded = true
+    }
+
+    func tokenAccountsData(for provider: UsageProvider) -> ProviderTokenAccountData? {
+        self.ensureTokenAccountsLoaded()
+        return self.tokenAccountsByProvider[provider]
+    }
+
+    func tokenAccounts(for provider: UsageProvider) -> [ProviderTokenAccount] {
+        self.tokenAccountsData(for: provider)?.accounts ?? []
+    }
+
+    func selectedTokenAccount(for provider: UsageProvider) -> ProviderTokenAccount? {
+        guard let data = self.tokenAccountsData(for: provider), !data.accounts.isEmpty else { return nil }
+        let index = data.clampedActiveIndex()
+        guard index < data.accounts.count else { return nil }
+        return data.accounts[index]
+    }
+
+    func setTokenAccounts(_ data: ProviderTokenAccountData?, for provider: UsageProvider) {
+        self.ensureTokenAccountsLoaded()
+        if let data {
+            self.tokenAccountsByProvider[provider] = data
+        } else {
+            self.tokenAccountsByProvider.removeValue(forKey: provider)
+        }
+    }
+
+    func setActiveTokenAccountIndex(_ index: Int, for provider: UsageProvider) {
+        self.ensureTokenAccountsLoaded()
+        guard var data = self.tokenAccountsByProvider[provider] else { return }
+        let clamped = min(max(index, 0), max(0, data.accounts.count - 1))
+        data = ProviderTokenAccountData(version: data.version, accounts: data.accounts, activeIndex: clamped)
+        self.tokenAccountsByProvider[provider] = data
+    }
+
+    func addTokenAccount(provider: UsageProvider, label: String, token: String) {
+        self.ensureTokenAccountsLoaded()
+        let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedLabel.isEmpty, !trimmedToken.isEmpty else { return }
+        let now = Date().timeIntervalSince1970
+        var data = self.tokenAccountsByProvider[provider]
+            ?? ProviderTokenAccountData(version: 1, accounts: [], activeIndex: 0)
+        let account = ProviderTokenAccount(
+            id: UUID(),
+            label: trimmedLabel,
+            token: trimmedToken,
+            addedAt: now,
+            lastUsed: now)
+        data = ProviderTokenAccountData(
+            version: data.version,
+            accounts: data.accounts + [account],
+            activeIndex: max(0, data.accounts.count))
+        self.tokenAccountsByProvider[provider] = data
+        self.applyTokenAccountSideEffects(for: provider)
+    }
+
+    func removeTokenAccount(provider: UsageProvider, accountID: UUID) {
+        self.ensureTokenAccountsLoaded()
+        guard let data = self.tokenAccountsByProvider[provider] else { return }
+        let remaining = data.accounts.filter { $0.id != accountID }
+        if remaining.isEmpty {
+            self.tokenAccountsByProvider.removeValue(forKey: provider)
+            return
+        }
+        let newIndex = min(data.clampedActiveIndex(), max(0, remaining.count - 1))
+        self.tokenAccountsByProvider[provider] = ProviderTokenAccountData(
+            version: data.version,
+            accounts: remaining,
+            activeIndex: newIndex)
+    }
+
+    func reloadTokenAccounts() {
+        self.tokenAccountsLoaded = false
+        self.ensureTokenAccountsLoaded()
+    }
+
+    func openTokenAccountsFile() {
+        do {
+            let url = try self.tokenAccountStore.ensureFileExists()
+            NSWorkspace.shared.open(url)
+        } catch {
+            CodexBarLog.logger("token-account-store").error("Failed to open token accounts file: \(error)")
+        }
+    }
+
+    private func applyTokenAccountSideEffects(for provider: UsageProvider) {
+        guard let support = TokenAccountSupportCatalog.support(for: provider),
+              support.requiresManualCookieSource
+        else {
+            return
+        }
+        switch provider {
+        case .claude:
+            self.claudeCookieSource = .manual
+        case .cursor:
+            self.cursorCookieSource = .manual
+        case .opencode:
+            self.opencodeCookieSource = .manual
+        case .factory:
+            self.factoryCookieSource = .manual
+        case .minimax:
+            self.minimaxCookieSource = .manual
+        case .augment:
+            self.augmentCookieSource = .manual
+        default:
+            break
+        }
     }
 }
 
@@ -1124,5 +1610,61 @@ enum LaunchAtLoginManager {
         } else {
             try? service.unregister()
         }
+    }
+}
+
+extension SettingsStore {
+    var menuObservationToken: Int {
+        _ = self.providerOrderRaw
+        _ = self.refreshFrequency
+        _ = self.launchAtLogin
+        _ = self.debugMenuEnabled
+        _ = self.debugDisableKeychainAccess
+        _ = self.statusChecksEnabled
+        _ = self.sessionQuotaNotificationsEnabled
+        _ = self.usageBarsShowUsed
+        _ = self.resetTimesShowAbsolute
+        _ = self.menuBarShowsBrandIconWithPercent
+        _ = self.showAllTokenAccountsInMenu
+        _ = self.menuBarMetricPreferencesRaw
+        _ = self.costUsageEnabled
+        _ = self.hidePersonalInfo
+        _ = self.randomBlinkEnabled
+        _ = self.claudeWebExtrasEnabled
+        _ = self.showOptionalCreditsAndExtraUsage
+        _ = self.openAIWebAccessEnabled
+        _ = self.codexUsageDataSource
+        _ = self.claudeUsageDataSource
+        _ = self.codexCookieSource
+        _ = self.claudeCookieSource
+        _ = self.cursorCookieSource
+        _ = self.opencodeCookieSource
+        _ = self.factoryCookieSource
+        _ = self.minimaxCookieSource
+        _ = self.minimaxAPIRegion
+        _ = self.kimiCookieSource
+        _ = self.augmentCookieSource
+        _ = self.ampCookieSource
+        _ = self.mergeIcons
+        _ = self.switcherShowsIcons
+        _ = self.zaiAPIToken
+        _ = self.codexCookieHeader
+        _ = self.claudeCookieHeader
+        _ = self.cursorCookieHeader
+        _ = self.opencodeCookieHeader
+        _ = self.opencodeWorkspaceID
+        _ = self.factoryCookieHeader
+        _ = self.minimaxCookieHeader
+        _ = self.minimaxAPIToken
+        _ = self.kimiManualCookieHeader
+        _ = self.kimiK2APIToken
+        _ = self.augmentCookieHeader
+        _ = self.ampCookieHeader
+        _ = self.copilotAPIToken
+        _ = self.tokenAccountsByProvider
+        _ = self.debugLoadingPattern
+        _ = self.selectedMenuProvider
+        _ = self.providerToggleRevision
+        return 0
     }
 }

@@ -13,8 +13,12 @@ public struct KeychainPromptContext: Sendable {
         case factoryCookie
         case zaiToken
         case copilotToken
+        case kimiToken
+        case kimiK2Token
         case minimaxCookie
+        case minimaxToken
         case augmentCookie
+        case ampCookie
     }
 
     public let kind: Kind
@@ -42,6 +46,7 @@ public enum KeychainAccessPreflight {
 
     public static func checkGenericPassword(service: String, account: String?) -> Outcome {
         #if os(macOS)
+        guard !KeychainAccessGate.isDisabled else { return .notFound }
         let context = LAContext()
         context.interactionNotAllowed = true
         var query: [String: Any] = [

@@ -71,6 +71,34 @@ public struct ProviderSettingsSnapshot: Sendable {
     public struct MiniMaxProviderSettings: Sendable {
         public let cookieSource: ProviderCookieSource
         public let manualCookieHeader: String?
+        public let apiRegion: MiniMaxAPIRegion
+
+        public init(
+            cookieSource: ProviderCookieSource,
+            manualCookieHeader: String?,
+            apiRegion: MiniMaxAPIRegion = .global)
+        {
+            self.cookieSource = cookieSource
+            self.manualCookieHeader = manualCookieHeader
+            self.apiRegion = apiRegion
+        }
+    }
+
+    public struct ZaiProviderSettings: Sendable {
+        public let apiRegion: ZaiAPIRegion
+
+        public init(apiRegion: ZaiAPIRegion = .global) {
+            self.apiRegion = apiRegion
+        }
+    }
+
+    public struct CopilotProviderSettings: Sendable {
+        public init() {}
+    }
+
+    public struct KimiProviderSettings: Sendable {
+        public let cookieSource: ProviderCookieSource
+        public let manualCookieHeader: String?
 
         public init(cookieSource: ProviderCookieSource, manualCookieHeader: String?) {
             self.cookieSource = cookieSource
@@ -78,15 +106,17 @@ public struct ProviderSettingsSnapshot: Sendable {
         }
     }
 
-    public struct ZaiProviderSettings: Sendable {
-        public init() {}
-    }
-
-    public struct CopilotProviderSettings: Sendable {
-        public init() {}
-    }
-
     public struct AugmentProviderSettings: Sendable {
+        public let cookieSource: ProviderCookieSource
+        public let manualCookieHeader: String?
+
+        public init(cookieSource: ProviderCookieSource, manualCookieHeader: String?) {
+            self.cookieSource = cookieSource
+            self.manualCookieHeader = manualCookieHeader
+        }
+    }
+
+    public struct AmpProviderSettings: Sendable {
         public let cookieSource: ProviderCookieSource
         public let manualCookieHeader: String?
 
@@ -105,7 +135,9 @@ public struct ProviderSettingsSnapshot: Sendable {
     public let minimax: MiniMaxProviderSettings?
     public let zai: ZaiProviderSettings?
     public let copilot: CopilotProviderSettings?
+    public let kimi: KimiProviderSettings?
     public let augment: AugmentProviderSettings?
+    public let amp: AmpProviderSettings?
 
     public init(
         debugMenuEnabled: Bool,
@@ -117,7 +149,9 @@ public struct ProviderSettingsSnapshot: Sendable {
         minimax: MiniMaxProviderSettings?,
         zai: ZaiProviderSettings?,
         copilot: CopilotProviderSettings?,
-        augment: AugmentProviderSettings?)
+        kimi: KimiProviderSettings?,
+        augment: AugmentProviderSettings?,
+        amp: AmpProviderSettings?)
     {
         self.debugMenuEnabled = debugMenuEnabled
         self.codex = codex
@@ -128,6 +162,8 @@ public struct ProviderSettingsSnapshot: Sendable {
         self.minimax = minimax
         self.zai = zai
         self.copilot = copilot
+        self.kimi = kimi
         self.augment = augment
+        self.amp = amp
     }
 }

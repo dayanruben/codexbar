@@ -270,6 +270,9 @@ private struct ProviderSwitchChip: View {
         case .vertexai: "Vertex"
         case .kiro: "Kiro"
         case .augment: "Augment"
+        case .kimi: "Kimi"
+        case .kimik2: "Kimi K2"
+        case .amp: "Amp"
         }
     }
 }
@@ -590,6 +593,12 @@ enum WidgetColors {
             Color(red: 255 / 255, green: 153 / 255, blue: 0 / 255) // AWS orange
         case .augment:
             Color(red: 99 / 255, green: 102 / 255, blue: 241 / 255) // Augment purple
+        case .kimi:
+            Color(red: 254 / 255, green: 96 / 255, blue: 60 / 255) // Kimi orange
+        case .kimik2:
+            Color(red: 76 / 255, green: 0 / 255, blue: 255 / 255) // Kimi K2 purple
+        case .amp:
+            Color(red: 220 / 255, green: 38 / 255, blue: 38 / 255) // Amp red
         }
     }
 }

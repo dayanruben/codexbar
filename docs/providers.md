@@ -1,5 +1,5 @@
 ---
-summary: "Provider data sources and parsing overview (Codex, Claude, Gemini, Antigravity, Cursor, Droid/Factory, z.ai, Copilot, Kiro, Vertex AI)."
+summary: "Provider data sources and parsing overview (Codex, Claude, Gemini, Antigravity, Cursor, Droid/Factory, z.ai, Copilot, Kimi, Kimi K2, Kiro, Vertex AI, Augment, Amp)."
 read_when:
   - Adding or modifying provider fetch/parsing
   - Adjusting provider labels, toggles, or metadata
@@ -13,6 +13,8 @@ Legend: web (browser cookies/WebView), cli (RPC/PTy), oauth (API), api token, lo
 Source labels (CLI/header): `openai-web`, `web`, `oauth`, `api`, `local`, plus provider-specific CLI labels (e.g. `codex-cli`, `claude`).
 
 Cookie-based providers expose a Cookie source picker (Automatic or Manual) in Settings → Providers.
+Browser cookie imports are cached in Keychain (`com.steipete.codexbar.cache`, account `cookie.<provider>`) and reused
+until the session is invalid, to avoid repeated Keychain prompts.
 
 | Provider | Strategies (ordered for auto) |
 | --- | --- |
@@ -25,9 +27,12 @@ Cookie-based providers expose a Cookie source picker (Automatic or Manual) in Se
 | Droid/Factory | Web cookies → stored tokens → local storage → WorkOS cookies (`web`). |
 | z.ai | API token (Keychain/env) → quota API (`api`). |
 | MiniMax | Manual cookie header (Keychain/env) → browser cookies (+ local storage access token) → coding plan page (HTML) with remains API fallback (`web`). |
+| Kimi | API token (JWT from `kimi-auth` cookie) → usage API (`api`). |
 | Copilot | API token (device flow/env) → copilot_internal API (`api`). |
+| Kimi K2 | API key (Keychain/env) → credit endpoint (`api`). |
 | Kiro | CLI command via `kiro-cli chat --no-interactive "/usage"` (`cli`). |
 | Vertex AI | Google ADC OAuth (gcloud) → Cloud Monitoring quota usage (`oauth`). |
+| Amp | Web settings page via browser cookies (`web`). |
 
 ## Codex
 - Web dashboard (when enabled): `https://chatgpt.com/codex/settings/usage` via WebView + browser cookies.
@@ -47,15 +52,30 @@ Cookie-based providers expose a Cookie source picker (Automatic or Manual) in Se
 
 ## z.ai
 - API token from Keychain or `Z_AI_API_KEY` env var.
-- `GET https://api.z.ai/api/monitor/usage/quota/limit`.
+- Quota endpoint: `https://api.z.ai/api/monitor/usage/quota/limit` (global) or `https://open.bigmodel.cn/api/monitor/usage/quota/limit` (BigModel CN); override with `Z_AI_API_HOST` or `Z_AI_QUOTA_URL`.
 - Status: none yet.
 - Details: `docs/zai.md`.
 
 ## MiniMax
 - Session cookie header from Keychain or `MINIMAX_COOKIE`/`MINIMAX_COOKIE_HEADER` env var.
-- `GET https://platform.minimax.io/v1/api/openplatform/coding_plan/remains`.
+- Hosts: `platform.minimax.io` (global) or `platform.minimaxi.com` (China mainland) via region picker or `MINIMAX_HOST`; full overrides via `MINIMAX_CODING_PLAN_URL` / `MINIMAX_REMAINS_URL`.
+- `GET {host}/v1/api/openplatform/coding_plan/remains`.
 - Status: none yet.
 - Details: `docs/minimax.md`.
+
+## Kimi
+- Auth token (JWT from `kimi-auth` cookie) via manual entry or `KIMI_AUTH_TOKEN` env var.
+- `POST https://www.kimi.com/apiv2/kimi.gateway.billing.v1.BillingService/GetUsages`.
+- Shows weekly quota and 5-hour rate limit (300 minutes).
+- Status: none yet.
+- Details: `docs/kimi.md`.
+
+## Kimi K2
+- API key via Settings (Keychain) or `KIMI_K2_API_KEY`/`KIMI_API_KEY` env var.
+- `GET https://kimi-k2.ai/api/user/credits`.
+- Shows credit usage based on consumed/remaining totals.
+- Status: none yet.
+- Details: `docs/kimi-k2.md`.
 
 ## Gemini
 - OAuth-backed quota API (`retrieveUserQuota`) using Gemini CLI credentials.
@@ -106,4 +126,10 @@ Cookie-based providers expose a Cookie source picker (Automatic or Manual) in Se
 - Token cost: scans `~/.claude/projects/` logs filtered to Vertex AI-tagged entries.
 - Requires Cloud Monitoring API access in the current project.
 - Details: `docs/vertexai.md`.
+
+## Amp
+- Web settings page (`https://ampcode.com/settings`) via browser cookies.
+- Parses Amp Free usage from the settings HTML.
+- Status: none yet.
+- Details: `docs/amp.md`.
 See also: `docs/provider.md` for architecture notes.
