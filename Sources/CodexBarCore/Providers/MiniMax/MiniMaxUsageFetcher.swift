@@ -8,7 +8,7 @@ public struct MiniMaxUsageFetcher: Sendable {
     private static let codingPlanPath = "user-center/payment/coding-plan"
     private static let codingPlanQuery = "cycle_type=3"
     private static let codingPlanRemainsPath = "v1/api/openplatform/coding_plan/remains"
-    private static let apiRemainsURL = URL(string: "https://api.minimax.io/v1/coding_plan/remains")!
+    private static let apiRemainsURL = URL(string: "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains")!
     private struct RemainsContext: Sendable {
         let authorizationToken: String?
         let groupID: String?
@@ -62,6 +62,8 @@ public struct MiniMaxUsageFetcher: Sendable {
         request.httpMethod = "GET"
         request.setValue("Bearer \(cleaned)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("CodexBar", forHTTPHeaderField: "MM-API-Source")
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -419,7 +421,8 @@ enum MiniMaxUsageParser {
     }
 
     static func decodePayload(json: [String: Any]) throws -> MiniMaxCodingPlanPayload {
-        let data = try JSONSerialization.data(withJSONObject: json, options: [])
+        let normalized = self.normalizeCodingPlanPayload(json)
+        let data = try JSONSerialization.data(withJSONObject: normalized, options: [])
         return try self.decodePayload(data: data)
     }
 
@@ -591,7 +594,7 @@ enum MiniMaxUsageParser {
 
     private static func findCodingPlanPayload(in object: Any) -> [String: Any]? {
         if let dict = object as? [String: Any] {
-            if dict["model_remains"] != nil {
+            if dict["model_remains"] != nil || dict["modelRemains"] != nil {
                 return dict
             }
             for value in dict.values {
@@ -610,6 +613,38 @@ enum MiniMaxUsageParser {
             }
         }
         return nil
+    }
+
+    private static func normalizeCodingPlanPayload(_ payload: [String: Any]) -> [String: Any] {
+        var normalized = payload
+
+        if normalized["model_remains"] == nil, let value = normalized["modelRemains"] {
+            normalized["model_remains"] = value
+        }
+        if normalized["current_subscribe_title"] == nil, let value = normalized["currentSubscribeTitle"] {
+            normalized["current_subscribe_title"] = value
+        }
+        if normalized["plan_name"] == nil, let value = normalized["planName"] {
+            normalized["plan_name"] = value
+        }
+        if normalized["combo_title"] == nil, let value = normalized["comboTitle"] {
+            normalized["combo_title"] = value
+        }
+        if normalized["current_plan_title"] == nil, let value = normalized["currentPlanTitle"] {
+            normalized["current_plan_title"] = value
+        }
+        if normalized["current_combo_card"] == nil, let value = normalized["currentComboCard"] {
+            normalized["current_combo_card"] = value
+        }
+        if normalized["base_resp"] == nil, let value = normalized["baseResp"] {
+            normalized["base_resp"] = value
+        }
+
+        if let data = normalized["data"] as? [String: Any] {
+            normalized["data"] = self.normalizeCodingPlanPayload(data)
+        }
+
+        return normalized
     }
 
     private static let nextDataNeedle = Data("id=\"__NEXT_DATA__\"".utf8)

@@ -137,7 +137,7 @@ struct ProviderRegistry {
         settings.ensureKimiAuthTokenLoaded()
         let kimiHeader = settings.kimiManualCookieHeader
 
-        return ProviderSettingsSnapshot(
+        return ProviderSettingsSnapshot.make(
             debugMenuEnabled: settings.debugMenuEnabled,
             codex: ProviderSettingsSnapshot.CodexProviderSettings(
                 usageDataSource: settings.codexUsageDataSource,
@@ -208,7 +208,9 @@ struct ProviderRegistry {
                     settings: settings,
                     override: tokenOverride,
                     fallback: settings.ampCookieSource),
-                manualCookieHeader: ampHeader))
+                manualCookieHeader: ampHeader),
+            jetbrains: ProviderSettingsSnapshot.JetBrainsProviderSettings(
+                ideBasePath: settings.jetbrainsIDEBasePath.isEmpty ? nil : settings.jetbrainsIDEBasePath))
     }
 
     @MainActor

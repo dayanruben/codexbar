@@ -27,7 +27,7 @@ final class ProviderSwitcherView: NSView {
     private let selectedTextColor = NSColor.white
     private let unselectedTextColor = NSColor.secondaryLabelColor
     private let stackedIcons: Bool
-    private let useTwoRows: Bool
+    private let rowCount: Int
     private let rowSpacing: CGFloat
     private let rowHeight: CGFloat
     private var preferredWidth: CGFloat = 0
@@ -68,13 +68,19 @@ final class ProviderSwitcherView: NSView {
             count: self.segments.count,
             outerPadding: initialOuterPadding,
             minimumGap: minimumGap)
-        self.useTwoRows = Self.shouldUseTwoRows(
+        self.rowCount = Self.switcherRowCount(
+            width: width,
             count: self.segments.count,
             maxAllowedSegmentWidth: initialMaxAllowedSegmentWidth,
             stackedIcons: self.stackedIcons)
         self.rowSpacing = self.stackedIcons ? 4 : 2
-        self.rowHeight = self.stackedIcons ? 36 : 30
-        let height: CGFloat = self.useTwoRows ? (self.rowHeight * 2 + self.rowSpacing) : self.rowHeight
+        if self.stackedIcons && self.rowCount >= 3 {
+            self.rowHeight = 40
+        } else {
+            self.rowHeight = self.stackedIcons ? 36 : 30
+        }
+        let height: CGFloat = self.rowHeight * CGFloat(self.rowCount)
+            + self.rowSpacing * CGFloat(max(0, self.rowCount - 1))
         self.preferredWidth = width
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: height))
         Self.clearButtonWidthCache()
@@ -84,9 +90,7 @@ final class ProviderSwitcherView: NSView {
         self.layer?.insertSublayer(self.lightModeOverlayLayer, at: 0)
         self.updateLightModeStyling()
 
-        let layoutCount = self.useTwoRows
-            ? Int(ceil(Double(self.segments.count) / 2.0))
-            : self.segments.count
+        let layoutCount = Self.layoutCount(for: self.segments.count, rows: self.rowCount)
         let outerPadding: CGFloat = Self.switcherOuterPadding(
             for: width,
             count: layoutCount,
@@ -105,6 +109,10 @@ final class ProviderSwitcherView: NSView {
                     image: segment.image,
                     target: self,
                     action: #selector(self.handleSelection(_:)))
+                stacked.setAllowsTwoLineTitle(self.rowCount >= 3)
+                if self.rowCount >= 4 {
+                    stacked.setTitleFontSize(NSFont.smallSystemFontSize - 3)
+                }
                 button = stacked
             } else if self.showsIcons {
                 let inline = InlineIconToggleButton(
@@ -155,7 +163,7 @@ final class ProviderSwitcherView: NSView {
         }
 
         let uniformWidth: CGFloat
-        if self.useTwoRows || !self.stackedIcons {
+        if self.rowCount > 1 || !self.stackedIcons {
             uniformWidth = self.applyUniformSegmentWidth(maxAllowedWidth: maxAllowedSegmentWidth)
             if uniformWidth > 0 {
                 self.segmentWidths = Array(repeating: uniformWidth, count: self.buttons.count)
@@ -236,8 +244,9 @@ final class ProviderSwitcherView: NSView {
         minimumGap: CGFloat,
         uniformWidth: CGFloat)
     {
-        if self.useTwoRows {
-            self.applyTwoRowLayout(
+        if self.rowCount > 1 {
+            self.applyMultiRowLayout(
+                rowCount: self.rowCount,
                 outerPadding: outerPadding,
                 minimumGap: minimumGap,
                 uniformWidth: uniformWidth)
@@ -332,16 +341,14 @@ final class ProviderSwitcherView: NSView {
         }
     }
 
-    private func applyTwoRowLayout(
+    private func applyMultiRowLayout(
+        rowCount: Int,
         outerPadding: CGFloat,
         minimumGap: CGFloat,
         uniformWidth: CGFloat)
     {
-        let splitIndex = Int(ceil(Double(self.buttons.count) / 2.0))
-        let topButtons = Array(self.buttons.prefix(splitIndex))
-        let bottomButtons = Array(self.buttons.dropFirst(splitIndex))
-
-        let columns = max(topButtons.count, bottomButtons.count)
+        let rows = Self.splitRows(for: self.buttons, rowCount: rowCount)
+        let columns = rows.map(\.count).max() ?? 0
         let layoutWidth = self.preferredWidth > 0 ? self.preferredWidth : self.bounds.width
         let availableWidth = max(0, layoutWidth - outerPadding * 2)
         let gaps = max(1, columns - 1)
@@ -360,53 +367,94 @@ final class ProviderSwitcherView: NSView {
             gridContainer.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -outerPadding),
         ])
 
-        let topRow = NSView()
-        topRow.translatesAutoresizingMaskIntoConstraints = false
-        gridContainer.addSubview(topRow)
+        var rowViews: [NSView] = []
+        for _ in 0..<rowCount {
+            let row = NSView()
+            row.translatesAutoresizingMaskIntoConstraints = false
+            gridContainer.addSubview(row)
+            rowViews.append(row)
+        }
 
-        let bottomRow = NSView()
-        bottomRow.translatesAutoresizingMaskIntoConstraints = false
-        gridContainer.addSubview(bottomRow)
-
-        NSLayoutConstraint.activate([
-            topRow.leadingAnchor.constraint(equalTo: gridContainer.leadingAnchor),
-            topRow.trailingAnchor.constraint(equalTo: gridContainer.trailingAnchor),
-            topRow.topAnchor.constraint(equalTo: gridContainer.topAnchor),
-            topRow.heightAnchor.constraint(equalToConstant: self.rowHeight),
-            bottomRow.leadingAnchor.constraint(equalTo: gridContainer.leadingAnchor),
-            bottomRow.trailingAnchor.constraint(equalTo: gridContainer.trailingAnchor),
-            bottomRow.bottomAnchor.constraint(equalTo: gridContainer.bottomAnchor),
-            bottomRow.heightAnchor.constraint(equalToConstant: self.rowHeight),
-            bottomRow.topAnchor.constraint(equalTo: topRow.bottomAnchor, constant: self.rowSpacing),
-        ])
-
-        for index in 0..<columns {
-            let xOffset = CGFloat(index) * (uniformWidth + computedGap)
-            if index < topButtons.count {
-                let button = topButtons[index]
-                NSLayoutConstraint.activate([
-                    button.leadingAnchor.constraint(equalTo: gridContainer.leadingAnchor, constant: xOffset),
-                    button.centerYAnchor.constraint(equalTo: topRow.centerYAnchor),
-                ])
+        var rowConstraints: [NSLayoutConstraint] = []
+        for (index, row) in rowViews.enumerated() {
+            rowConstraints.append(row.leadingAnchor.constraint(equalTo: gridContainer.leadingAnchor))
+            rowConstraints.append(row.trailingAnchor.constraint(equalTo: gridContainer.trailingAnchor))
+            rowConstraints.append(row.heightAnchor.constraint(equalToConstant: self.rowHeight))
+            if index == 0 {
+                rowConstraints.append(row.topAnchor.constraint(equalTo: gridContainer.topAnchor))
+            } else {
+                rowConstraints.append(row.topAnchor.constraint(
+                    equalTo: rowViews[index - 1].bottomAnchor,
+                    constant: self.rowSpacing))
             }
-            if index < bottomButtons.count {
-                let button = bottomButtons[index]
+            if index == rowViews.count - 1 {
+                rowConstraints.append(row.bottomAnchor.constraint(equalTo: gridContainer.bottomAnchor))
+            }
+        }
+        NSLayoutConstraint.activate(rowConstraints)
+
+        for (rowIndex, rowButtons) in rows.enumerated() {
+            guard rowIndex < rowViews.count else { continue }
+            let rowView = rowViews[rowIndex]
+            for (columnIndex, button) in rowButtons.enumerated() {
+                let xOffset = CGFloat(columnIndex) * (uniformWidth + computedGap)
                 NSLayoutConstraint.activate([
                     button.leadingAnchor.constraint(equalTo: gridContainer.leadingAnchor, constant: xOffset),
-                    button.centerYAnchor.constraint(equalTo: bottomRow.centerYAnchor),
+                    button.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
                 ])
             }
         }
     }
 
-    private static func shouldUseTwoRows(
+    private static func switcherRowCount(
+        width: CGFloat,
         count: Int,
         maxAllowedSegmentWidth: CGFloat,
-        stackedIcons: Bool) -> Bool
+        stackedIcons: Bool) -> Int
     {
-        guard count > 1 else { return false }
+        guard count > 1 else { return 1 }
+        let maxRows = min(4, count)
+        let fourRowThreshold = 15
         let minimumComfortableAverage: CGFloat = stackedIcons ? 44 : 54
-        return maxAllowedSegmentWidth < minimumComfortableAverage
+        if count >= fourRowThreshold { return maxRows }
+        if maxAllowedSegmentWidth >= minimumComfortableAverage { return 1 }
+
+        for rows in 2...maxRows {
+            let perRow = self.layoutCount(for: count, rows: rows)
+            let outerPadding = self.switcherOuterPadding(for: width, count: perRow, minimumGap: 1)
+            let allowedWidth = self.maxAllowedUniformSegmentWidth(
+                for: width,
+                count: perRow,
+                outerPadding: outerPadding,
+                minimumGap: 1)
+            if allowedWidth >= minimumComfortableAverage { return rows }
+        }
+
+        return maxRows
+    }
+
+    private static func layoutCount(for count: Int, rows: Int) -> Int {
+        guard rows > 0 else { return count }
+        return Int(ceil(Double(count) / Double(rows)))
+    }
+
+    private static func splitRows(for buttons: [NSButton], rowCount: Int) -> [[NSButton]] {
+        guard rowCount > 1 else { return [buttons] }
+        let base = buttons.count / rowCount
+        let extra = buttons.count % rowCount
+        var rows: [[NSButton]] = []
+        var start = 0
+        for index in 0..<rowCount {
+            let size = base + (index < extra ? 1 : 0)
+            if size == 0 {
+                rows.append([])
+                continue
+            }
+            let end = min(buttons.count, start + size)
+            rows.append(Array(buttons[start..<end]))
+            start = end
+        }
+        return rows
     }
 
     private static func switcherOuterPadding(for width: CGFloat, count: Int, minimumGap: CGFloat) -> CGFloat {
@@ -695,11 +743,9 @@ final class ProviderSwitcherView: NSView {
 
     private func updateWeeklyIndicatorVisibility(for view: NSView) {
         guard let indicator = self.weeklyIndicators[ObjectIdentifier(view)] else { return }
-        let isSelected = (view as? NSButton)?.state == .on
-
-        // Hide indicator on selected segment; also hide when we have no data.
-        indicator.track.isHidden = isSelected
-        indicator.fill.isHidden = isSelected
+        // Always show the progress bar, even for the selected segment.
+        indicator.track.isHidden = false
+        indicator.fill.isHidden = false
     }
 
     private static func weeklyIndicatorColor(for provider: UsageProvider) -> NSColor {

@@ -9,6 +9,7 @@ enum RefreshFrequency: String, CaseIterable, Identifiable {
     case twoMinutes
     case fiveMinutes
     case fifteenMinutes
+    case thirtyMinutes
 
     var id: String { self.rawValue }
 
@@ -19,6 +20,7 @@ enum RefreshFrequency: String, CaseIterable, Identifiable {
         case .twoMinutes: 120
         case .fiveMinutes: 300
         case .fifteenMinutes: 900
+        case .thirtyMinutes: 1800
         }
     }
 
@@ -29,6 +31,7 @@ enum RefreshFrequency: String, CaseIterable, Identifiable {
         case .twoMinutes: "2 min"
         case .fiveMinutes: "5 min"
         case .fifteenMinutes: "15 min"
+        case .thirtyMinutes: "30 min"
         }
     }
 }
@@ -58,7 +61,7 @@ final class SettingsStore {
     /// Persisted provider display order.
     ///
     /// Stored as raw `UsageProvider` strings so new providers can be appended automatically without breaking.
-    private var providerOrderRaw: [String] {
+    private(set) var providerOrderRaw: [String] {
         didSet { self.userDefaults.set(self.providerOrderRaw, forKey: "providerOrder") }
     }
 
@@ -125,13 +128,24 @@ final class SettingsStore {
         }
     }
 
+    /// Controls what the menu bar displays when brand icon mode is enabled.
+    private var menuBarDisplayModeRaw: String? {
+        didSet {
+            if let raw = self.menuBarDisplayModeRaw {
+                self.userDefaults.set(raw, forKey: "menuBarDisplayMode")
+            } else {
+                self.userDefaults.removeObject(forKey: "menuBarDisplayMode")
+            }
+        }
+    }
+
     /// Optional: show all token accounts stacked in the menu (otherwise show a switcher bar).
     var showAllTokenAccountsInMenu: Bool {
         didSet { self.userDefaults.set(self.showAllTokenAccountsInMenu, forKey: "showAllTokenAccountsInMenu") }
     }
 
     /// Optional: choose which quota window drives the menu bar percentage.
-    private var menuBarMetricPreferencesRaw: [String: String] {
+    private(set) var menuBarMetricPreferencesRaw: [String: String] {
         didSet { self.userDefaults.set(self.menuBarMetricPreferencesRaw, forKey: "menuBarMetricPreferences") }
     }
 
@@ -147,6 +161,11 @@ final class SettingsStore {
 
     var randomBlinkEnabled: Bool {
         didSet { self.userDefaults.set(self.randomBlinkEnabled, forKey: "randomBlinkEnabled") }
+    }
+
+    /// Optional: auto-select the provider with highest usage in the merged menu bar icon.
+    var menuBarShowsHighestUsage: Bool {
+        didSet { self.userDefaults.set(self.menuBarShowsHighestUsage, forKey: "menuBarShowsHighestUsage") }
     }
 
     /// Optional: augment Claude usage with claude.ai web API (via browser cookies),
@@ -292,6 +311,11 @@ final class SettingsStore {
         }
     }
 
+    /// JetBrains IDE base path for quota file lookup.
+    var jetbrainsIDEBasePath: String {
+        didSet { self.userDefaults.set(self.jetbrainsIDEBasePath, forKey: "jetbrainsIDEBasePath") }
+    }
+
     /// Optional: collapse provider icons into a single menu bar item with an in-menu switcher.
     var mergeIcons: Bool {
         didSet { self.userDefaults.set(self.mergeIcons, forKey: "mergeIcons") }
@@ -315,6 +339,11 @@ final class SettingsStore {
     /// z.ai API token (stored in Keychain).
     var zaiAPIToken: String {
         didSet { self.schedulePersistZaiAPIToken() }
+    }
+
+    /// Synthetic API key (stored in Keychain).
+    var syntheticAPIToken: String {
+        didSet { self.schedulePersistSyntheticAPIToken() }
     }
 
     /// Codex OpenAI cookie header (stored in Keychain).
@@ -416,10 +445,6 @@ final class SettingsStore {
         }
     }
 
-    var resetTimeDisplayStyle: ResetTimeDisplayStyle {
-        self.resetTimesShowAbsolute ? .absolute : .countdown
-    }
-
     var codexUsageDataSource: CodexUsageDataSource {
         get { CodexUsageDataSource(rawValue: self.codexUsageDataSourceRaw ?? "") ?? .auto }
         set {
@@ -519,6 +544,10 @@ final class SettingsStore {
     @ObservationIgnored private var zaiTokenPersistTask: Task<Void, Never>?
     @ObservationIgnored private var zaiTokenLoaded = false
     @ObservationIgnored private var zaiTokenLoading = false
+    @ObservationIgnored private let syntheticTokenStore: any SyntheticTokenStoring
+    @ObservationIgnored private var syntheticTokenPersistTask: Task<Void, Never>?
+    @ObservationIgnored private var syntheticTokenLoaded = false
+    @ObservationIgnored private var syntheticTokenLoading = false
     @ObservationIgnored private let codexCookieStore: any CookieHeaderStoring
     @ObservationIgnored private var codexCookiePersistTask: Task<Void, Never>?
     @ObservationIgnored private var codexCookieLoaded = false
@@ -580,11 +609,12 @@ final class SettingsStore {
     // Cache order to avoid re-building sets/arrays every animation tick.
     @ObservationIgnored private var cachedProviderOrder: [UsageProvider] = []
     @ObservationIgnored private var cachedProviderOrderRaw: [String] = []
-    private var providerToggleRevision: Int = 0
+    private(set) var providerToggleRevision: Int = 0
 
     init(
         userDefaults: UserDefaults = .standard,
         zaiTokenStore: any ZaiTokenStoring = KeychainZaiTokenStore(),
+        syntheticTokenStore: any SyntheticTokenStoring = KeychainSyntheticTokenStore(),
         codexCookieStore: any CookieHeaderStoring = KeychainCookieHeaderStore(
             account: "codex-cookie",
             promptKind: .codexCookie),
@@ -615,6 +645,7 @@ final class SettingsStore {
     {
         self.userDefaults = userDefaults
         self.zaiTokenStore = zaiTokenStore
+        self.syntheticTokenStore = syntheticTokenStore
         self.codexCookieStore = codexCookieStore
         self.claudeCookieStore = claudeCookieStore
         self.cursorCookieStore = cursorCookieStore
@@ -653,6 +684,8 @@ final class SettingsStore {
         self.resetTimesShowAbsolute = userDefaults.object(forKey: "resetTimesShowAbsolute") as? Bool ?? false
         self.menuBarShowsBrandIconWithPercent = userDefaults.object(
             forKey: "menuBarShowsBrandIconWithPercent") as? Bool ?? false
+        self.menuBarDisplayModeRaw = userDefaults.string(forKey: "menuBarDisplayMode")
+            ?? MenuBarDisplayMode.percent.rawValue
         self.showAllTokenAccountsInMenu = userDefaults.object(
             forKey: "showAllTokenAccountsInMenu") as? Bool ?? false
         let storedMenuBarMetricPreferences = userDefaults.dictionary(
@@ -669,6 +702,7 @@ final class SettingsStore {
         self.costUsageEnabled = userDefaults.object(forKey: "tokenCostUsageEnabled") as? Bool ?? false
         self.hidePersonalInfo = userDefaults.object(forKey: "hidePersonalInfo") as? Bool ?? false
         self.randomBlinkEnabled = userDefaults.object(forKey: "randomBlinkEnabled") as? Bool ?? false
+        self.menuBarShowsHighestUsage = userDefaults.object(forKey: "menuBarShowsHighestUsage") as? Bool ?? false
         self.claudeWebExtrasEnabledRaw = userDefaults.object(forKey: "claudeWebExtrasEnabled") as? Bool ?? false
         let creditsExtrasDefault = userDefaults.object(forKey: "showOptionalCreditsAndExtraUsage") as? Bool
         self.showOptionalCreditsAndExtraUsage = creditsExtrasDefault ?? true
@@ -709,6 +743,7 @@ final class SettingsStore {
             ?? ProviderCookieSource.auto.rawValue
         self.ampCookieSourceRaw = userDefaults.string(forKey: "ampCookieSource")
             ?? ProviderCookieSource.auto.rawValue
+        self.jetbrainsIDEBasePath = userDefaults.string(forKey: "jetbrainsIDEBasePath") ?? ""
         self.mergeIcons = userDefaults.object(forKey: "mergeIcons") as? Bool ?? true
         self.switcherShowsIcons = userDefaults.object(forKey: "switcherShowsIcons") as? Bool ?? true
         let minimaxAPIRegionRaw = userDefaults.string(forKey: "minimaxAPIRegion")
@@ -717,6 +752,7 @@ final class SettingsStore {
         let zaiAPIRegionRaw = userDefaults.string(forKey: "zaiAPIRegion")
         self.zaiAPIRegion = ZaiAPIRegion(rawValue: zaiAPIRegionRaw ?? ZaiAPIRegion.global.rawValue) ?? .global
         self.zaiAPIToken = ""
+        self.syntheticAPIToken = ""
         self.codexCookieHeader = ""
         self.claudeCookieHeader = ""
         self.cursorCookieHeader = ""
@@ -994,6 +1030,33 @@ extension SettingsStore {
             if let error {
                 // Keep value in memory; persist best-effort.
                 CodexBarLog.logger("zai-token-store").error("Failed to persist z.ai token: \(error)")
+            }
+        }
+    }
+
+    private func schedulePersistSyntheticAPIToken() {
+        if self.syntheticTokenLoading { return }
+        self.syntheticTokenPersistTask?.cancel()
+        let token = self.syntheticAPIToken
+        let tokenStore = self.syntheticTokenStore
+        self.syntheticTokenPersistTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            let error: (any Error)? = await Task.detached(priority: .utility) { () -> (any Error)? in
+                do {
+                    try tokenStore.storeToken(token)
+                    return nil
+                } catch {
+                    return error
+                }
+            }.value
+            if let error {
+                CodexBarLog.logger("synthetic-token-store")
+                    .error("Failed to persist Synthetic API key: \(error)")
             }
         }
     }
@@ -1368,6 +1431,14 @@ extension SettingsStore {
         self.zaiTokenLoaded = true
     }
 
+    func ensureSyntheticAPITokenLoaded() {
+        guard !self.syntheticTokenLoaded else { return }
+        self.syntheticTokenLoading = true
+        self.syntheticAPIToken = (try? self.syntheticTokenStore.loadToken()) ?? ""
+        self.syntheticTokenLoading = false
+        self.syntheticTokenLoaded = true
+    }
+
     func ensureCodexCookieLoaded() {
         guard !self.codexCookieLoaded else { return }
         self.codexCookieLoading = true
@@ -1574,6 +1645,17 @@ extension SettingsStore {
             CodexBarLog.logger("token-account-store").error("Failed to open token accounts file: \(error)")
         }
     }
+}
+
+extension SettingsStore {
+    var resetTimeDisplayStyle: ResetTimeDisplayStyle {
+        self.resetTimesShowAbsolute ? .absolute : .countdown
+    }
+
+    var menuBarDisplayMode: MenuBarDisplayMode {
+        get { MenuBarDisplayMode(rawValue: self.menuBarDisplayModeRaw ?? "") ?? .percent }
+        set { self.menuBarDisplayModeRaw = newValue.rawValue }
+    }
 
     private func applyTokenAccountSideEffects(for provider: UsageProvider) {
         guard let support = TokenAccountSupportCatalog.support(for: provider),
@@ -1610,61 +1692,5 @@ enum LaunchAtLoginManager {
         } else {
             try? service.unregister()
         }
-    }
-}
-
-extension SettingsStore {
-    var menuObservationToken: Int {
-        _ = self.providerOrderRaw
-        _ = self.refreshFrequency
-        _ = self.launchAtLogin
-        _ = self.debugMenuEnabled
-        _ = self.debugDisableKeychainAccess
-        _ = self.statusChecksEnabled
-        _ = self.sessionQuotaNotificationsEnabled
-        _ = self.usageBarsShowUsed
-        _ = self.resetTimesShowAbsolute
-        _ = self.menuBarShowsBrandIconWithPercent
-        _ = self.showAllTokenAccountsInMenu
-        _ = self.menuBarMetricPreferencesRaw
-        _ = self.costUsageEnabled
-        _ = self.hidePersonalInfo
-        _ = self.randomBlinkEnabled
-        _ = self.claudeWebExtrasEnabled
-        _ = self.showOptionalCreditsAndExtraUsage
-        _ = self.openAIWebAccessEnabled
-        _ = self.codexUsageDataSource
-        _ = self.claudeUsageDataSource
-        _ = self.codexCookieSource
-        _ = self.claudeCookieSource
-        _ = self.cursorCookieSource
-        _ = self.opencodeCookieSource
-        _ = self.factoryCookieSource
-        _ = self.minimaxCookieSource
-        _ = self.minimaxAPIRegion
-        _ = self.kimiCookieSource
-        _ = self.augmentCookieSource
-        _ = self.ampCookieSource
-        _ = self.mergeIcons
-        _ = self.switcherShowsIcons
-        _ = self.zaiAPIToken
-        _ = self.codexCookieHeader
-        _ = self.claudeCookieHeader
-        _ = self.cursorCookieHeader
-        _ = self.opencodeCookieHeader
-        _ = self.opencodeWorkspaceID
-        _ = self.factoryCookieHeader
-        _ = self.minimaxCookieHeader
-        _ = self.minimaxAPIToken
-        _ = self.kimiManualCookieHeader
-        _ = self.kimiK2APIToken
-        _ = self.augmentCookieHeader
-        _ = self.ampCookieHeader
-        _ = self.copilotAPIToken
-        _ = self.tokenAccountsByProvider
-        _ = self.debugLoadingPattern
-        _ = self.selectedMenuProvider
-        _ = self.providerToggleRevision
-        return 0
     }
 }

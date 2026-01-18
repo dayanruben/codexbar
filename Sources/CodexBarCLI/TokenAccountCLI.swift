@@ -137,7 +137,8 @@ struct TokenAccountCLIContext {
                 augment: ProviderSettingsSnapshot.AugmentProviderSettings(
                     cookieSource: .manual,
                     manualCookieHeader: header))
-        case .codex, .gemini, .antigravity, .zai, .copilot, .kiro, .vertexai, .kimi, .kimik2, .amp:
+        case .codex, .gemini, .antigravity, .zai, .copilot, .kiro, .vertexai, .kimi, .kimik2, .amp, .synthetic,
+             .jetbrains:
             return nil
         }
     }
@@ -150,19 +151,13 @@ struct TokenAccountCLIContext {
         minimax: ProviderSettingsSnapshot.MiniMaxProviderSettings? = nil,
         augment: ProviderSettingsSnapshot.AugmentProviderSettings? = nil) -> ProviderSettingsSnapshot
     {
-        ProviderSettingsSnapshot(
-            debugMenuEnabled: false,
-            codex: nil,
+        ProviderSettingsSnapshot.make(
             claude: claude,
             cursor: cursor,
             opencode: opencode,
             factory: factory,
             minimax: minimax,
-            zai: nil,
-            copilot: nil,
-            kimi: nil,
-            augment: augment,
-            amp: nil)
+            augment: augment)
     }
 
     func environment(

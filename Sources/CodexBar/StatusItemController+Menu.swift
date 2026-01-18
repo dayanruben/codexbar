@@ -113,9 +113,11 @@ extension StatusItemController {
             currentProvider: currentProvider,
             showAllTokenAccounts: showAllTokenAccounts)
 
+        let hasTokenAccountSwitcher = menu.items.contains { $0.view is TokenAccountSwitcherView }
         let canSmartUpdate = self.shouldMergeIcons &&
             enabledProviders.count > 1 &&
             tokenAccountDisplay == nil &&
+            !hasTokenAccountSwitcher &&
             !menu.items.isEmpty &&
             menu.items.first?.view is ProviderSwitcherView
 
@@ -743,24 +745,28 @@ extension StatusItemController {
         return image
     }
 
-    private func switcherWeeklyRemaining(for provider: UsageProvider) -> Double? {
-        let snapshot = self.store.snapshot(for: provider)
-        let window: RateWindow? = if provider == .factory {
-            snapshot?.secondary ?? snapshot?.primary
-        } else {
-            snapshot?.primary ?? snapshot?.secondary
-        }
+    nonisolated static func switcherWeeklyMetricPercent(
+        for provider: UsageProvider,
+        snapshot: UsageSnapshot?,
+        showUsed: Bool) -> Double?
+    {
+        let window = snapshot?.switcherWeeklyWindow(for: provider, showUsed: showUsed)
         guard let window else { return nil }
-        if self.settings.usageBarsShowUsed {
-            return window.usedPercent
-        }
-        return window.remainingPercent
+        return showUsed ? window.usedPercent : window.remainingPercent
+    }
+
+    private func switcherWeeklyRemaining(for provider: UsageProvider) -> Double? {
+        Self.switcherWeeklyMetricPercent(
+            for: provider,
+            snapshot: self.store.snapshot(for: provider),
+            showUsed: self.settings.usageBarsShowUsed)
     }
 
     private func selector(for action: MenuDescriptor.MenuAction) -> (Selector, Any?) {
         switch action {
         case .installUpdate: (#selector(self.installUpdate), nil)
         case .refresh: (#selector(self.refreshNow), nil)
+        case .refreshAugmentSession: (#selector(self.refreshAugmentSession), nil)
         case .dashboard: (#selector(self.openDashboard), nil)
         case .statusPage: (#selector(self.openStatusPage), nil)
         case let .switchAccount(provider): (#selector(self.runSwitchAccount(_:)), provider.rawValue)
