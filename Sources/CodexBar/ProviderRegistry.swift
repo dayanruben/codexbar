@@ -224,17 +224,19 @@ struct ProviderRegistry {
             provider: provider,
             settings: settings,
             override: tokenOverride)
-        guard let account, let override = TokenAccountSupportCatalog.envOverride(
+        var env = base
+        if let account, let override = TokenAccountSupportCatalog.envOverride(
             for: provider,
             token: account.token)
-        else {
-            return base
+        {
+            for (key, value) in override {
+                env[key] = value
+            }
         }
-        var env = base
-        for (key, value) in override {
-            env[key] = value
-        }
-        return env
+        return ProviderConfigEnvironment.applyAPIKeyOverride(
+            base: env,
+            provider: provider,
+            config: settings.providerConfig(for: provider))
     }
 
     @MainActor
@@ -275,7 +277,6 @@ struct ProviderRegistry {
         override: TokenAccountOverride?,
         fallback: ProviderCookieSource) -> ProviderCookieSource
     {
-        guard !settings.debugDisableKeychainAccess else { return .off }
         guard let support = TokenAccountSupportCatalog.support(for: provider),
               support.requiresManualCookieSource
         else {

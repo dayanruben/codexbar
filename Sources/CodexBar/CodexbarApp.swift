@@ -59,7 +59,7 @@ struct CodexBarApp: App {
                 updater: self.appDelegate.updaterController,
                 selection: self.preferencesSelection)
         }
-        .defaultSize(width: PreferencesTab.windowWidth, height: PreferencesTab.general.preferredHeight)
+        .defaultSize(width: PreferencesTab.general.preferredWidth, height: PreferencesTab.general.preferredHeight)
         .windowResizability(.contentSize)
     }
 
@@ -179,6 +179,10 @@ final class SparkleUpdaterController: NSObject, UpdaterProviding, SPUUpdaterDele
                 self.updateStatus.isUpdateReady = false
             }
         }
+    }
+
+    nonisolated func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+        UpdateChannel.current.allowedSparkleChannels
     }
 }
 
