@@ -6,6 +6,7 @@ import SwiftUI
 struct DebugPane: View {
     @Bindable var settings: SettingsStore
     @Bindable var store: UsageStore
+    @AppStorage("debugFileLoggingEnabled") private var debugFileLoggingEnabled = false
     @State private var currentLogProvider: UsageProvider = .codex
     @State private var currentFetchProvider: UsageProvider = .codex
     @State private var isLoadingLog = false
@@ -25,6 +26,18 @@ struct DebugPane: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 20) {
+                SettingsSection(title: "Logging") {
+                    PreferenceToggleRow(
+                        title: "Enable file logging",
+                        subtitle: "Write logs to \(self.fileLogPath) for debugging.",
+                        binding: self.$debugFileLoggingEnabled)
+                        .onChange(of: self.debugFileLoggingEnabled) { _, newValue in
+                            if self.settings.debugFileLoggingEnabled != newValue {
+                                self.settings.debugFileLoggingEnabled = newValue
+                            }
+                        }
+                }
+
                 SettingsSection {
                     PreferenceToggleRow(
                         title: "Force animation on next refresh",
@@ -336,6 +349,10 @@ struct DebugPane: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
+    }
+
+    private var fileLogPath: String {
+        CodexBarLog.fileLogURL.path
     }
 
     private var animationPatternBinding: Binding<LoadingPattern?> {

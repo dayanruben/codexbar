@@ -35,7 +35,7 @@ struct ProviderSidebarListView: View {
         .scrollContentBackground(.hidden)
         .background(
             RoundedRectangle(cornerRadius: ProviderSettingsMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor)))
+                .fill(.regularMaterial))
         .overlay(
             RoundedRectangle(cornerRadius: ProviderSettingsMetrics.sidebarCornerRadius, style: .continuous)
                 .stroke(Color(nsColor: .separatorColor).opacity(0.7), lineWidth: 1))
@@ -89,6 +89,7 @@ private struct ProviderSidebarRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    .frame(height: ProviderSettingsMetrics.sidebarSubtitleHeight, alignment: .topLeading)
             }
 
             Spacer(minLength: 8)

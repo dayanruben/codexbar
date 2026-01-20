@@ -73,10 +73,12 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var animationDriver: DisplayLinkDriver?
     var animationPhase: Double = 0
     var animationPattern: LoadingPattern = .knightRider
-    private var lastProviderToggleRevision: Int
+    private var lastConfigRevision: Int
     private var lastProviderOrderRaw: [String]
     private var lastMergeIcons: Bool
     private var lastSwitcherShowsIcons: Bool
+    /// Tracks which providers the merged menu's switcher was built with, to detect when it needs full rebuild.
+    var lastSwitcherProviders: [UsageProvider] = []
     let loginLogger = CodexBarLog.logger("login")
     var selectedMenuProvider: UsageProvider? {
         get { self.settings.selectedMenuProvider }
@@ -138,7 +140,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         self.account = account
         self.updater = updater
         self.preferencesSelection = preferencesSelection
-        self.lastProviderToggleRevision = settings.providerToggleRevision
+        self.lastConfigRevision = settings.configRevision
         self.lastProviderOrderRaw = settings.providerOrderRaw
         self.lastMergeIcons = settings.mergeIcons
         self.lastSwitcherShowsIcons = settings.switcherShowsIcons
@@ -161,6 +163,11 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
             self,
             selector: #selector(self.handleDebugBlinkNotification),
             name: .codexbarDebugBlinkNow,
+            object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.handleProviderConfigDidChange),
+            name: .codexbarProviderConfigDidChange,
             object: nil)
     }
 
@@ -204,20 +211,28 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                let orderChanged = self.settings.providerOrderRaw != self.lastProviderOrderRaw
-                let shouldRefreshOpenMenus = self.shouldRefreshOpenMenusForProviderSwitcher()
                 self.observeSettingsChanges()
-                self.invalidateMenus()
-                if orderChanged {
-                    self.rebuildProviderStatusItems()
-                }
-                self.updateVisibility()
-                self.updateIcons()
-                if shouldRefreshOpenMenus {
-                    self.refreshOpenMenusIfNeeded()
-                }
+                self.handleSettingsChange(reason: "observation")
             }
         }
+    }
+
+    func handleProviderConfigChange(reason: String) {
+        self.handleSettingsChange(reason: "config:\(reason)")
+    }
+
+    @objc private func handleProviderConfigDidChange(_ notification: Notification) {
+        let reason = notification.userInfo?["reason"] as? String ?? "unknown"
+        if let source = notification.object as? SettingsStore,
+           source !== self.settings
+        {
+            if let config = notification.userInfo?["config"] as? CodexBarConfig {
+                self.settings.applyExternalConfig(config, reason: "external-\(reason)")
+            } else {
+                self.settings.reloadConfig(reason: "external-\(reason)")
+            }
+        }
+        self.handleProviderConfigChange(reason: "notification:\(reason)")
     }
 
     private func observeUpdaterChanges() {
@@ -248,9 +263,9 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
 
     private func shouldRefreshOpenMenusForProviderSwitcher() -> Bool {
         var shouldRefresh = false
-        let revision = self.settings.providerToggleRevision
-        if revision != self.lastProviderToggleRevision {
-            self.lastProviderToggleRevision = revision
+        let revision = self.settings.configRevision
+        if revision != self.lastConfigRevision {
+            self.lastConfigRevision = revision
             shouldRefresh = true
         }
         let orderRaw = self.settings.providerOrderRaw
@@ -269,6 +284,21 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
             shouldRefresh = true
         }
         return shouldRefresh
+    }
+
+    private func handleSettingsChange(reason: String) {
+        let configChanged = self.settings.configRevision != self.lastConfigRevision
+        let orderChanged = self.settings.providerOrderRaw != self.lastProviderOrderRaw
+        let shouldRefreshOpenMenus = self.shouldRefreshOpenMenusForProviderSwitcher()
+        self.invalidateMenus()
+        if orderChanged || configChanged {
+            self.rebuildProviderStatusItems()
+        }
+        self.updateVisibility()
+        self.updateIcons()
+        if shouldRefreshOpenMenus {
+            self.refreshOpenMenusIfNeeded()
+        }
     }
 
     private func updateIcons() {
@@ -301,7 +331,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     private func updateVisibility() {
         let anyEnabled = !self.store.enabledProviders().isEmpty
         let force = self.store.debugForceAnimation
-        if self.shouldMergeIcons {
+        let mergeIcons = self.shouldMergeIcons
+        if mergeIcons {
             self.statusItem.isVisible = anyEnabled || force
             for item in self.statusItems.values {
                 item.isVisible = false
