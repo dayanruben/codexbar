@@ -24,12 +24,7 @@ extension UsageStore {
         _ = self.openAIDashboardRequiresLogin
         _ = self.openAIDashboardCookieImportStatus
         _ = self.openAIDashboardCookieImportDebugLog
-        _ = self.codexVersion
-        _ = self.claudeVersion
-        _ = self.geminiVersion
-        _ = self.zaiVersion
-        _ = self.antigravityVersion
-        _ = self.kiroVersion
+        _ = self.versions
         _ = self.isRefreshing
         _ = self.refreshingProviders
         _ = self.pathDebugInfo
@@ -46,37 +41,22 @@ extension UsageStore {
             _ = self.settings.usageBarsShowUsed
             _ = self.settings.costUsageEnabled
             _ = self.settings.randomBlinkEnabled
-            _ = self.settings.claudeWebExtrasEnabled
-            _ = self.settings.codexUsageDataSource
-            _ = self.settings.claudeUsageDataSource
-            _ = self.settings.codexCookieSource
-            _ = self.settings.claudeCookieSource
-            _ = self.settings.cursorCookieSource
-            _ = self.settings.factoryCookieSource
-            _ = self.settings.minimaxCookieSource
-            _ = self.settings.kimiCookieSource
-            _ = self.settings.augmentCookieSource
-            _ = self.settings.codexCookieHeader
-            _ = self.settings.claudeCookieHeader
-            _ = self.settings.cursorCookieHeader
-            _ = self.settings.factoryCookieHeader
-            _ = self.settings.minimaxCookieHeader
-            _ = self.settings.minimaxAPIToken
-            _ = self.settings.kimiManualCookieHeader
-            _ = self.settings.augmentCookieHeader
-            _ = self.settings.ampCookieSource
-            _ = self.settings.ampCookieHeader
+            _ = self.settings.configRevision
+            for implementation in ProviderCatalog.all {
+                implementation.observeSettings(self.settings)
+            }
             _ = self.settings.showAllTokenAccountsInMenu
             _ = self.settings.tokenAccountsByProvider
             _ = self.settings.mergeIcons
             _ = self.settings.selectedMenuProvider
             _ = self.settings.debugLoadingPattern
+            _ = self.settings.debugKeepCLISessionsAlive
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.observeSettingsChanges()
                 self.startTimer()
-                self.restartAugmentKeepaliveIfNeeded()
+                self.updateProviderRuntimes()
                 await self.refresh()
             }
         }
@@ -174,13 +154,7 @@ final class UsageStore {
     var openAIDashboardRequiresLogin: Bool = false
     var openAIDashboardCookieImportStatus: String?
     var openAIDashboardCookieImportDebugLog: String?
-    var codexVersion: String?
-    var claudeVersion: String?
-    var geminiVersion: String?
-    var zaiVersion: String?
-    var antigravityVersion: String?
-    var cursorVersion: String?
-    var kiroVersion: String?
+    var versions: [UsageProvider: String] = [:]
     var isRefreshing = false
     var refreshingProviders: Set<UsageProvider> = []
     var debugForceAnimation = false
@@ -202,14 +176,17 @@ final class UsageStore {
     @ObservationIgnored private let registry: ProviderRegistry
     @ObservationIgnored let settings: SettingsStore
     @ObservationIgnored private let sessionQuotaNotifier: SessionQuotaNotifier
-    @ObservationIgnored private let sessionQuotaLogger = CodexBarLog.logger("sessionQuota")
-    @ObservationIgnored private let openAIWebLogger = CodexBarLog.logger("openai-web")
-    @ObservationIgnored private let tokenCostLogger = CodexBarLog.logger("token-cost")
+    @ObservationIgnored private let sessionQuotaLogger = CodexBarLog.logger(LogCategories.sessionQuota)
+    @ObservationIgnored private let openAIWebLogger = CodexBarLog.logger(LogCategories.openAIWeb)
+    @ObservationIgnored private let tokenCostLogger = CodexBarLog.logger(LogCategories.tokenCost)
+    @ObservationIgnored let augmentLogger = CodexBarLog.logger(LogCategories.augment)
+    @ObservationIgnored let providerLogger = CodexBarLog.logger(LogCategories.providers)
     @ObservationIgnored private var openAIWebDebugLines: [String] = []
     @ObservationIgnored var failureGates: [UsageProvider: ConsecutiveFailureGate] = [:]
     @ObservationIgnored var tokenFailureGates: [UsageProvider: ConsecutiveFailureGate] = [:]
     @ObservationIgnored var providerSpecs: [UsageProvider: ProviderSpec] = [:]
-    @ObservationIgnored private let providerMetadata: [UsageProvider: ProviderMetadata]
+    @ObservationIgnored let providerMetadata: [UsageProvider: ProviderMetadata]
+    @ObservationIgnored var providerRuntimes: [UsageProvider: any ProviderRuntime] = [:]
     @ObservationIgnored private var timerTask: Task<Void, Never>?
     @ObservationIgnored private var tokenTimerTask: Task<Void, Never>?
     @ObservationIgnored private var tokenRefreshSequenceTask: Task<Void, Never>?
@@ -218,7 +195,6 @@ final class UsageStore {
     @ObservationIgnored var lastTokenFetchAt: [UsageProvider: Date] = [:]
     @ObservationIgnored private let tokenFetchTTL: TimeInterval = 60 * 60
     @ObservationIgnored private let tokenFetchTimeout: TimeInterval = 10 * 60
-    @ObservationIgnored var augmentKeepalive: AugmentSessionKeepalive?
 
     init(
         fetcher: UsageFetcher,
@@ -250,8 +226,13 @@ final class UsageStore {
             codexFetcher: fetcher,
             claudeFetcher: self.claudeFetcher,
             browserDetection: browserDetection)
+        self.providerRuntimes = Dictionary(uniqueKeysWithValues: ProviderCatalog.all.compactMap { implementation in
+            implementation.makeRuntime().map { (implementation.id, $0) }
+        })
+        self.logStartupState()
         self.bindSettings()
         self.detectVersions()
+        self.updateProviderRuntimes()
         self.pathDebugInfo = PathDebugSnapshot(
             codexBinary: nil,
             claudeBinary: nil,
@@ -269,7 +250,6 @@ final class UsageStore {
         Task { await self.refresh() }
         self.startTimer()
         self.startTokenTimer()
-        self.startAugmentKeepalive()
     }
 
     /// Returns the login method (plan type) for the specified provider, if available.
@@ -294,26 +274,7 @@ final class UsageStore {
     }
 
     func version(for provider: UsageProvider) -> String? {
-        switch provider {
-        case .codex: self.codexVersion
-        case .claude: self.claudeVersion
-        case .zai: self.zaiVersion
-        case .gemini: self.geminiVersion
-        case .antigravity: self.antigravityVersion
-        case .cursor: self.cursorVersion
-        case .opencode: nil
-        case .factory: nil
-        case .copilot: nil
-        case .minimax: nil
-        case .vertexai: nil
-        case .kiro: self.kiroVersion
-        case .augment: nil
-        case .jetbrains: nil
-        case .kimi: nil
-        case .kimik2: nil
-        case .amp: nil
-        case .synthetic: nil
-        }
+        self.versions[provider]
     }
 
     var preferredSnapshot: UsageSnapshot? {
@@ -333,19 +294,10 @@ final class UsageStore {
     }
 
     var isStale: Bool {
-        (self.isEnabled(.codex) && self.lastCodexError != nil) ||
-            (self.isEnabled(.claude) && self.lastClaudeError != nil) ||
-            (self.isEnabled(.zai) && self.errors[.zai] != nil) ||
-            (self.isEnabled(.gemini) && self.errors[.gemini] != nil) ||
-            (self.isEnabled(.antigravity) && self.errors[.antigravity] != nil) ||
-            (self.isEnabled(.cursor) && self.errors[.cursor] != nil) ||
-            (self.isEnabled(.opencode) && self.errors[.opencode] != nil) ||
-            (self.isEnabled(.factory) && self.errors[.factory] != nil) ||
-            (self.isEnabled(.copilot) && self.errors[.copilot] != nil) ||
-            (self.isEnabled(.minimax) && self.errors[.minimax] != nil) ||
-            (self.isEnabled(.kimi) && self.errors[.kimi] != nil) ||
-            (self.isEnabled(.kimik2) && self.errors[.kimik2] != nil) ||
-            (self.isEnabled(.synthetic) && self.errors[.synthetic] != nil)
+        for provider in self.enabledProviders() where self.errors[provider] != nil {
+            return true
+        }
+        return false
     }
 
     func enabledProviders() -> [UsageProvider] {
@@ -400,25 +352,26 @@ final class UsageStore {
             let modes = descriptor.fetchPlan.sourceModes
             if modes.count == 1, let mode = modes.first {
                 label = mode.rawValue
-            } else if provider == .codex {
-                label = self.settings.codexUsageDataSource.rawValue
-            } else if provider == .claude {
-                label = self.settings.claudeUsageDataSource.rawValue
             } else {
-                label = "auto"
+                let context = ProviderSourceLabelContext(
+                    provider: provider,
+                    settings: self.settings,
+                    store: self,
+                    descriptor: descriptor)
+                label = ProviderCatalog.implementation(for: provider)?
+                    .defaultSourceLabel(context: context)
+                    ?? "auto"
             }
         }
 
-        // When OpenAI web extras are active, show a blended label like `oauth + openai-web`.
-        if provider == .codex,
-           self.settings.codexCookieSource.isEnabled,
-           self.openAIDashboard != nil,
-           !self.openAIDashboardRequiresLogin,
-           !label.contains("openai-web")
-        {
-            return "\(label) + openai-web"
-        }
-        return label
+        let context = ProviderSourceLabelContext(
+            provider: provider,
+            settings: self.settings,
+            store: self,
+            descriptor: ProviderDescriptorRegistry.descriptor(for: provider))
+        return ProviderCatalog.implementation(for: provider)?
+            .decorateSourceLabel(context: context, baseLabel: label)
+            ?? label
     }
 
     func fetchAttempts(for provider: UsageProvider) -> [ProviderFetchAttempt] {
@@ -442,21 +395,31 @@ final class UsageStore {
     }
 
     func isProviderAvailable(_ provider: UsageProvider) -> Bool {
-        if provider == .zai {
-            if ZaiSettingsReader.apiToken(environment: ProcessInfo.processInfo.environment) != nil {
-                return true
+        let context = ProviderAvailabilityContext(
+            provider: provider,
+            settings: self.settings,
+            environment: ProcessInfo.processInfo.environment)
+        return ProviderCatalog.implementation(for: provider)?
+            .isAvailable(context: context)
+            ?? true
+    }
+
+    func performRuntimeAction(_ action: ProviderRuntimeAction, for provider: UsageProvider) async {
+        guard let runtime = self.providerRuntimes[provider] else { return }
+        let context = ProviderRuntimeContext(provider: provider, settings: self.settings, store: self)
+        await runtime.perform(action: action, context: context)
+    }
+
+    private func updateProviderRuntimes() {
+        for (provider, runtime) in self.providerRuntimes {
+            let context = ProviderRuntimeContext(provider: provider, settings: self.settings, store: self)
+            if self.isEnabled(provider) {
+                runtime.start(context: context)
+            } else {
+                runtime.stop(context: context)
             }
-            self.settings.ensureZaiAPITokenLoaded()
-            return !self.settings.zaiAPIToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            runtime.settingsDidChange(context: context)
         }
-        if provider == .synthetic {
-            if SyntheticSettingsReader.apiKey(environment: ProcessInfo.processInfo.environment) != nil {
-                return true
-            }
-            self.settings.ensureSyntheticAPITokenLoaded()
-            return !self.settings.syntheticAPIToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-        return true
     }
 
     func refresh(forceTokenUsage: Bool = false) async {
@@ -557,8 +520,6 @@ final class UsageStore {
         self.timerTask?.cancel()
         self.tokenTimerTask?.cancel()
         self.tokenRefreshSequenceTask?.cancel()
-        // Note: augmentKeepalive.stop() is @MainActor, can't call from deinit
-        // The timer task will be cancelled when augmentKeepalive is deallocated
     }
 
     func handleSessionQuotaTransition(provider: UsageProvider, snapshot: UsageSnapshot) {
@@ -647,7 +608,8 @@ final class UsageStore {
     private func refreshCreditsIfNeeded() async {
         guard self.isEnabled(.codex) else { return }
         do {
-            let credits = try await self.codexFetcher.loadLatestCredits()
+            let credits = try await self.codexFetcher.loadLatestCredits(
+                keepCLISessionsAlive: self.settings.debugKeepCLISessionsAlive)
             await MainActor.run {
                 self.credits = credits
                 self.lastCreditsError = nil
@@ -686,6 +648,24 @@ final class UsageStore {
 }
 
 extension UsageStore {
+    private static let openAIWebRefreshMultiplier: TimeInterval = 5
+
+    private func openAIWebRefreshIntervalSeconds() -> TimeInterval {
+        let base = max(self.settings.refreshFrequency.seconds ?? 0, 120)
+        return base * Self.openAIWebRefreshMultiplier
+    }
+
+    func requestOpenAIDashboardRefreshIfStale(reason: String) {
+        guard self.isEnabled(.codex), self.settings.codexCookieSource.isEnabled else { return }
+        let now = Date()
+        let refreshInterval = self.openAIWebRefreshIntervalSeconds()
+        let lastUpdatedAt = self.openAIDashboard?.updatedAt ?? self.lastOpenAIDashboardSnapshot?.updatedAt
+        if let lastUpdatedAt, now.timeIntervalSince(lastUpdatedAt) < refreshInterval { return }
+        let stamp = now.formatted(date: .abbreviated, time: .shortened)
+        self.logOpenAIWeb("[\(stamp)] OpenAI web refresh request: \(reason)")
+        Task { await self.refreshOpenAIDashboardIfNeeded(force: true) }
+    }
+
     private func applyOpenAIDashboard(_ dash: OpenAIDashboardSnapshot, targetEmail: String?) async {
         await MainActor.run {
             self.openAIDashboard = dash
@@ -730,17 +710,7 @@ extension UsageStore {
 
     private func refreshOpenAIDashboardIfNeeded(force: Bool = false) async {
         guard self.isEnabled(.codex), self.settings.codexCookieSource.isEnabled else {
-            await MainActor.run {
-                self.openAIDashboard = nil
-                self.lastOpenAIDashboardError = nil
-                self.lastOpenAIDashboardSnapshot = nil
-                self.lastOpenAIDashboardTargetEmail = nil
-                self.openAIDashboardRequiresLogin = false
-                self.openAIDashboardCookieImportStatus = nil
-                self.openAIDashboardCookieImportDebugLog = nil
-                self.lastOpenAIDashboardCookieImportAttemptAt = nil
-                self.lastOpenAIDashboardCookieImportEmail = nil
-            }
+            self.resetOpenAIWebState()
             return
         }
 
@@ -748,7 +718,7 @@ extension UsageStore {
         self.handleOpenAIWebTargetEmailChangeIfNeeded(targetEmail: targetEmail)
 
         let now = Date()
-        let minInterval = max(self.settings.refreshFrequency.seconds ?? 0, 120)
+        let minInterval = self.openAIWebRefreshIntervalSeconds()
         if !force,
            !self.openAIWebAccountDidChange,
            self.lastOpenAIDashboardError == nil,
@@ -1072,12 +1042,25 @@ extension UsageStore {
     }
 
     private func logOpenAIWeb(_ message: String) {
-        self.openAIWebLogger.debug(message)
-        self.openAIWebDebugLines.append(message)
+        let safeMessage = LogRedactor.redact(message)
+        self.openAIWebLogger.debug(safeMessage)
+        self.openAIWebDebugLines.append(safeMessage)
         if self.openAIWebDebugLines.count > 240 {
             self.openAIWebDebugLines.removeFirst(self.openAIWebDebugLines.count - 240)
         }
         self.openAIDashboardCookieImportDebugLog = self.openAIWebDebugLines.joined(separator: "\n")
+    }
+
+    func resetOpenAIWebState() {
+        self.openAIDashboard = nil
+        self.lastOpenAIDashboardError = nil
+        self.lastOpenAIDashboardSnapshot = nil
+        self.lastOpenAIDashboardTargetEmail = nil
+        self.openAIDashboardRequiresLogin = false
+        self.openAIDashboardCookieImportStatus = nil
+        self.openAIDashboardCookieImportDebugLog = nil
+        self.lastOpenAIDashboardCookieImportAttemptAt = nil
+        self.lastOpenAIDashboardCookieImportEmail = nil
     }
 
     private func dashboardEmailMismatch(expected: String?, actual: String?) -> Bool {
@@ -1102,7 +1085,10 @@ extension UsageStore {
 
 extension UsageStore {
     func debugDumpClaude() async {
-        let output = await self.claudeFetcher.debugRawProbe(model: "sonnet")
+        let fetcher = ClaudeUsageFetcher(
+            browserDetection: self.browserDetection,
+            keepCLISessionsAlive: self.settings.debugKeepCLISessionsAlive)
+        let output = await fetcher.debugRawProbe(model: "sonnet")
         let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("codexbar-claude-probe.txt")
         try? output.write(to: url, atomically: true, encoding: .utf8)
         await MainActor.run {
@@ -1145,6 +1131,7 @@ extension UsageStore {
         let claudeUsageDataSource = self.settings.claudeUsageDataSource
         let claudeCookieSource = self.settings.claudeCookieSource
         let claudeCookieHeader = self.settings.claudeCookieHeader
+        let keepCLISessionsAlive = self.settings.debugKeepCLISessionsAlive
         let cursorCookieSource = self.settings.cursorCookieSource
         let cursorCookieHeader = self.settings.cursorCookieHeader
         return await Task.detached(priority: .utility) { () -> String in
@@ -1158,7 +1145,8 @@ extension UsageStore {
                     claudeWebExtrasEnabled: claudeWebExtrasEnabled,
                     claudeUsageDataSource: claudeUsageDataSource,
                     claudeCookieSource: claudeCookieSource,
-                    claudeCookieHeader: claudeCookieHeader)
+                    claudeCookieHeader: claudeCookieHeader,
+                    keepCLISessionsAlive: keepCLISessionsAlive)
                 await MainActor.run { self.probeLogs[.claude] = text }
                 return text
             case .zai:
@@ -1249,7 +1237,8 @@ extension UsageStore {
         claudeWebExtrasEnabled: Bool,
         claudeUsageDataSource: ClaudeUsageDataSource,
         claudeCookieSource: ProviderCookieSource,
-        claudeCookieHeader: String) async -> String
+        claudeCookieHeader: String,
+        keepCLISessionsAlive: Bool) async -> String
     {
         await self.runWithTimeout(seconds: 15) {
             var lines: [String] = []
@@ -1317,7 +1306,10 @@ extension UsageStore {
                     return lines.joined(separator: "\n")
                 }
             case .cli:
-                let cli = await self.claudeFetcher.debugRawProbe(model: "sonnet")
+                let fetcher = ClaudeUsageFetcher(
+                    browserDetection: self.browserDetection,
+                    keepCLISessionsAlive: keepCLISessionsAlive)
+                let cli = await fetcher.debugRawProbe(model: "sonnet")
                 lines.append(cli)
                 return lines.joined(separator: "\n")
             case .oauth:
@@ -1411,54 +1403,29 @@ extension UsageStore {
     }
 
     private func detectVersions() {
-        Task.detached { [claudeFetcher] in
-            let codexVer = Self.readCLI("codex", args: ["-s", "read-only", "-a", "untrusted", "--version"])
-            let claudeVer = claudeFetcher.detectVersion()
-            let geminiVer = Self.readCLI("gemini", args: ["--version"])
-            let antigravityVer = await AntigravityStatusProbe.detectVersion()
-            let kiroVer = KiroStatusProbe.detectVersion()
-            await MainActor.run {
-                self.codexVersion = codexVer
-                self.claudeVersion = claudeVer
-                self.geminiVersion = geminiVer
-                self.zaiVersion = nil
-                self.antigravityVersion = antigravityVer
-                self.kiroVersion = kiroVer
-            }
+        let implementations = ProviderCatalog.all
+        let browserDetection = self.browserDetection
+        Task { @MainActor [weak self] in
+            let resolved = await Task.detached { () -> [UsageProvider: String] in
+                var resolved: [UsageProvider: String] = [:]
+                await withTaskGroup(of: (UsageProvider, String?).self) { group in
+                    for implementation in implementations {
+                        let context = ProviderVersionContext(
+                            provider: implementation.id,
+                            browserDetection: browserDetection)
+                        group.addTask {
+                            await (implementation.id, implementation.detectVersion(context: context))
+                        }
+                    }
+                    for await (provider, version) in group {
+                        guard let version, !version.isEmpty else { continue }
+                        resolved[provider] = version
+                    }
+                }
+                return resolved
+            }.value
+            self?.versions = resolved
         }
-    }
-
-    private nonisolated static func readCLI(_ cmd: String, args: [String]) -> String? {
-        let env = ProcessInfo.processInfo.environment
-        var pathEnv = env
-        pathEnv["PATH"] = PathBuilder.effectivePATH(purposes: [.rpc, .tty, .nodeTooling], env: env)
-        let loginPATH = LoginShellPathCache.shared.current
-
-        let resolved: String = switch cmd {
-        case "codex":
-            BinaryLocator.resolveCodexBinary(env: env, loginPATH: loginPATH) ?? cmd
-        case "gemini":
-            BinaryLocator.resolveGeminiBinary(env: env, loginPATH: loginPATH) ?? cmd
-        default:
-            cmd
-        }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = [resolved] + args
-        process.environment = pathEnv
-        let pipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = errorPipe
-        try? process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return nil }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let text = String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !text.isEmpty else { return nil }
-        return text
     }
 
     @MainActor

@@ -9,6 +9,37 @@ struct OpenCodeProviderImplementation: ProviderImplementation {
     let id: UsageProvider = .opencode
 
     @MainActor
+    func presentation(context _: ProviderPresentationContext) -> ProviderPresentation {
+        ProviderPresentation { _ in "web" }
+    }
+
+    @MainActor
+    func observeSettings(_ settings: SettingsStore) {
+        _ = settings.opencodeCookieSource
+        _ = settings.opencodeCookieHeader
+        _ = settings.opencodeWorkspaceID
+    }
+
+    @MainActor
+    func settingsSnapshot(context: ProviderSettingsSnapshotContext) -> ProviderSettingsSnapshotContribution? {
+        .opencode(context.settings.opencodeSettingsSnapshot(tokenOverride: context.tokenOverride))
+    }
+
+    @MainActor
+    func tokenAccountsVisibility(context: ProviderSettingsContext, support: TokenAccountSupport) -> Bool {
+        guard support.requiresManualCookieSource else { return true }
+        if !context.settings.tokenAccounts(for: context.provider).isEmpty { return true }
+        return context.settings.opencodeCookieSource == .manual
+    }
+
+    @MainActor
+    func applyTokenAccountCookieSource(settings: SettingsStore) {
+        if settings.opencodeCookieSource != .manual {
+            settings.opencodeCookieSource = .manual
+        }
+    }
+
+    @MainActor
     func settingsPickers(context: ProviderSettingsContext) -> [ProviderSettingsPickerDescriptor] {
         let cookieBinding = Binding(
             get: { context.settings.opencodeCookieSource.rawValue },

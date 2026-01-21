@@ -42,6 +42,9 @@ extension StatusItemController {
     func menuWillOpen(_ menu: NSMenu) {
         if self.isHostedSubviewMenu(menu) {
             self.refreshHostedSubviewHeights(in: menu)
+            if Self.menuRefreshEnabled, self.isOpenAIWebSubviewMenu(menu) {
+                self.store.requestOpenAIDashboardRefreshIfStale(reason: "submenu open")
+            }
             self.openMenus[ObjectIdentifier(menu)] = menu
             // Removed redundant async refresh - single pass is sufficient after initial layout
             return
@@ -74,7 +77,9 @@ extension StatusItemController {
         }
         self.openMenus[ObjectIdentifier(menu)] = menu
         // Only schedule refresh after menu is registered as open - refreshNow is called async
-        self.scheduleOpenMenuRefresh(for: menu)
+        if Self.menuRefreshEnabled {
+            self.scheduleOpenMenuRefresh(for: menu)
+        }
     }
 
     func menuDidClose(_ menu: NSMenu) {
@@ -587,6 +592,18 @@ extension StatusItemController {
         width: CGFloat,
         submenu: NSMenu? = nil) -> NSMenuItem
     {
+        if !Self.menuCardRenderingEnabled {
+            let item = NSMenuItem()
+            item.isEnabled = true
+            item.representedObject = id
+            item.submenu = submenu
+            if submenu != nil {
+                item.target = self
+                item.action = #selector(self.menuCardNoOp(_:))
+            }
+            return item
+        }
+
         let highlightState = MenuCardHighlightState()
         let wrapped = MenuCardSectionContainerView(
             highlightState: highlightState,
@@ -979,6 +996,16 @@ extension StatusItemController {
         let width = Self.menuCardBaseWidth
         guard !breakdown.isEmpty else { return nil }
 
+        if !Self.menuCardRenderingEnabled {
+            let submenu = NSMenu()
+            submenu.delegate = self
+            let chartItem = NSMenuItem()
+            chartItem.isEnabled = false
+            chartItem.representedObject = "usageBreakdownChart"
+            submenu.addItem(chartItem)
+            return submenu
+        }
+
         let submenu = NSMenu()
         submenu.delegate = self
         let chartView = UsageBreakdownChartMenuView(breakdown: breakdown, width: width)
@@ -1000,6 +1027,16 @@ extension StatusItemController {
         let breakdown = self.store.openAIDashboard?.dailyBreakdown ?? []
         let width = Self.menuCardBaseWidth
         guard !breakdown.isEmpty else { return nil }
+
+        if !Self.menuCardRenderingEnabled {
+            let submenu = NSMenu()
+            submenu.delegate = self
+            let chartItem = NSMenuItem()
+            chartItem.isEnabled = false
+            chartItem.representedObject = "creditsHistoryChart"
+            submenu.addItem(chartItem)
+            return submenu
+        }
 
         let submenu = NSMenu()
         submenu.delegate = self
@@ -1023,6 +1060,16 @@ extension StatusItemController {
         let width = Self.menuCardBaseWidth
         guard let tokenSnapshot = self.store.tokenSnapshot(for: provider) else { return nil }
         guard !tokenSnapshot.daily.isEmpty else { return nil }
+
+        if !Self.menuCardRenderingEnabled {
+            let submenu = NSMenu()
+            submenu.delegate = self
+            let chartItem = NSMenuItem()
+            chartItem.isEnabled = false
+            chartItem.representedObject = "costHistoryChart"
+            submenu.addItem(chartItem)
+            return submenu
+        }
 
         let submenu = NSMenu()
         submenu.delegate = self
@@ -1050,6 +1097,17 @@ extension StatusItemController {
             "usageBreakdownChart",
             "creditsHistoryChart",
             "costHistoryChart",
+        ]
+        return menu.items.contains { item in
+            guard let id = item.representedObject as? String else { return false }
+            return ids.contains(id)
+        }
+    }
+
+    private func isOpenAIWebSubviewMenu(_ menu: NSMenu) -> Bool {
+        let ids: Set<String> = [
+            "usageBreakdownChart",
+            "creditsHistoryChart",
         ]
         return menu.items.contains { item in
             guard let id = item.representedObject as? String else { return false }

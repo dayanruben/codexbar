@@ -162,111 +162,46 @@ public final class BrowserDetection: Sendable {
     }
 
     private func applicationName(for browser: Browser) -> String? {
-        switch browser {
-        case .safari:
-            return "Safari"
-        case .chrome:
-            return "Google Chrome"
-        case .chromeBeta:
-            return "Google Chrome Beta"
-        case .chromeCanary:
-            return "Google Chrome Canary"
-        case .arc:
-            return "Arc"
-        case .arcBeta:
-            return "Arc Beta"
-        case .arcCanary:
-            return "Arc Canary"
-        case .brave:
-            return "Brave Browser"
-        case .braveBeta:
-            return "Brave Browser Beta"
-        case .braveNightly:
-            return "Brave Browser Nightly"
-        case .edge:
-            return "Microsoft Edge"
-        case .edgeBeta:
-            return "Microsoft Edge Beta"
-        case .edgeCanary:
-            return "Microsoft Edge Canary"
-        case .vivaldi:
-            return "Vivaldi"
-        case .chromium:
-            return "Chromium"
-        case .firefox:
-            return "Firefox"
-        case .chatgptAtlas:
-            return "ChatGPT Atlas"
-        case .helium:
-            return "Helium"
-        @unknown default:
-            return nil
-        }
+        browser.appBundleName
     }
 
     private func profilePath(for browser: Browser, homeDirectory: String) -> String? {
-        switch browser {
-        case .safari:
+        if browser == .safari {
             return "\(homeDirectory)/Library/Cookies/Cookies.binarycookies"
-        case .chrome:
-            return "\(homeDirectory)/Library/Application Support/Google/Chrome"
-        case .chromeBeta:
-            return "\(homeDirectory)/Library/Application Support/Google/Chrome Beta"
-        case .chromeCanary:
-            return "\(homeDirectory)/Library/Application Support/Google/Chrome Canary"
-        case .arc:
-            return "\(homeDirectory)/Library/Application Support/Arc/User Data"
-        case .arcBeta:
-            return "\(homeDirectory)/Library/Application Support/Arc Beta/User Data"
-        case .arcCanary:
-            return "\(homeDirectory)/Library/Application Support/Arc Canary/User Data"
-        case .brave:
-            return "\(homeDirectory)/Library/Application Support/BraveSoftware/Brave-Browser"
-        case .braveBeta:
-            return "\(homeDirectory)/Library/Application Support/BraveSoftware/Brave-Browser-Beta"
-        case .braveNightly:
-            return "\(homeDirectory)/Library/Application Support/BraveSoftware/Brave-Browser-Nightly"
-        case .edge:
-            return "\(homeDirectory)/Library/Application Support/Microsoft Edge"
-        case .edgeBeta:
-            return "\(homeDirectory)/Library/Application Support/Microsoft Edge Beta"
-        case .edgeCanary:
-            return "\(homeDirectory)/Library/Application Support/Microsoft Edge Canary"
-        case .vivaldi:
-            return "\(homeDirectory)/Library/Application Support/Vivaldi"
-        case .chromium:
-            return "\(homeDirectory)/Library/Application Support/Chromium"
-        case .firefox:
-            return "\(homeDirectory)/Library/Application Support/Firefox/Profiles"
-        case .chatgptAtlas:
-            return "\(homeDirectory)/Library/Application Support/ChatGPT Atlas"
-        case .helium:
-            return "\(homeDirectory)/Library/Application Support/net.imput.helium"
-        @unknown default:
-            return nil
         }
+
+        if let relativePath = browser.chromiumProfileRelativePath {
+            return "\(homeDirectory)/Library/Application Support/\(relativePath)"
+        }
+
+        if let geckoFolder = browser.geckoProfilesFolder {
+            return "\(homeDirectory)/Library/Application Support/\(geckoFolder)/Profiles"
+        }
+
+        return nil
     }
 
     private func requiresProfileValidation(_ browser: Browser) -> Bool {
         // Chromium-based browsers should have Default/ or Profile*/ subdirectories
-        switch browser {
-        case .chrome, .chromeBeta, .chromeCanary,
-             .arc, .arcBeta, .arcCanary,
-             .brave, .braveBeta, .braveNightly,
-             .edge, .edgeBeta, .edgeCanary,
-             .vivaldi, .chromium, .chatgptAtlas:
-            return true
-        case .firefox:
-            // Firefox should have at least one *.default* directory
-            return true
-        case .helium:
-            // Helium doesn't use the Default/Profile* pattern
-            return false
-        case .safari:
-            return false
-        @unknown default:
+        if browser == .safari {
             return false
         }
+
+        if browser == .helium {
+            // Helium doesn't use the Default/Profile* pattern
+            return false
+        }
+
+        if browser.usesGeckoProfileStore {
+            // Firefox should have at least one *.default* directory
+            return true
+        }
+
+        if browser.usesChromiumProfileStore {
+            return true
+        }
+
+        return false
     }
 
     private func hasValidProfileDirectory(for browser: Browser, at profilePath: String) -> Bool {
@@ -277,7 +212,7 @@ public final class BrowserDetection: Sendable {
             name == "Default" || name.hasPrefix("Profile ") || name.hasPrefix("user-")
         }
 
-        if browser == .firefox {
+        if browser.usesGeckoProfileStore {
             let hasFirefoxProfile = contents.contains { name in
                 name.contains(".default")
             }
@@ -290,7 +225,7 @@ public final class BrowserDetection: Sendable {
     private func hasValidCookieStore(for browser: Browser, at profilePath: String) -> Bool {
         guard let contents = self.directoryContents(profilePath) else { return false }
 
-        if browser == .firefox {
+        if browser.usesGeckoProfileStore {
             for name in contents where name.contains(".default") {
                 let cookieDB = "\(profilePath)/\(name)/cookies.sqlite"
                 if self.fileExists(cookieDB) {

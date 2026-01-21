@@ -7,6 +7,7 @@ extension SettingsStore {
         var config = self.config
         mutate(&config)
         self.config = config.normalized()
+        self.updateProviderState(config: self.config)
         self.schedulePersistConfig()
         self.bumpConfigRevision(reason: reason)
     }
@@ -26,6 +27,16 @@ extension SettingsStore {
     }
 
     func updateProviderTokenAccounts(_ accounts: [UsageProvider: ProviderTokenAccountData]) {
+        let summary = accounts
+            .sorted { $0.key.rawValue < $1.key.rawValue }
+            .map { "\($0.key.rawValue)=\($0.value.accounts.count)" }
+            .joined(separator: ",")
+        CodexBarLog.logger(LogCategories.tokenAccounts).info(
+            "Token accounts updated",
+            metadata: [
+                "providers": "\(accounts.count)",
+                "summary": summary,
+            ])
         self.updateConfig(reason: "token-accounts") { config in
             var seen: Set<UsageProvider> = []
             for index in config.providers.indices {
@@ -66,7 +77,7 @@ extension SettingsStore {
             guard let loaded = try self.configStore.load() else { return }
             self.applyExternalConfig(loaded, reason: "reload-\(reason)")
         } catch {
-            CodexBarLog.logger("config-store").error("Failed to reload config: \(error)")
+            CodexBarLog.logger(LogCategories.configStore).error("Failed to reload config: \(error)")
         }
     }
 
@@ -74,13 +85,14 @@ extension SettingsStore {
         guard !self.configLoading else { return }
         self.configLoading = true
         self.config = config
+        self.updateProviderState(config: config)
         self.configLoading = false
         self.bumpConfigRevision(reason: "sync-\(reason)")
     }
 
     private func bumpConfigRevision(reason: String) {
         self.configRevision &+= 1
-        CodexBarLog.logger("settings")
+        CodexBarLog.logger(LogCategories.settings)
             .debug("Config revision bumped (\(reason)) -> \(self.configRevision)")
         NotificationCenter.default.post(
             name: .codexbarProviderConfigDidChange,
@@ -104,7 +116,7 @@ extension SettingsStore {
             do {
                 try self.configStore.save(self.config)
             } catch {
-                CodexBarLog.logger("config-store").error("Failed to persist config: \(error)")
+                CodexBarLog.logger(LogCategories.configStore).error("Failed to persist config: \(error)")
             }
             return
         }
@@ -126,7 +138,7 @@ extension SettingsStore {
                 }
             }.value
             if let error {
-                CodexBarLog.logger("config-store").error("Failed to persist config: \(error)")
+                CodexBarLog.logger(LogCategories.configStore).error("Failed to persist config: \(error)")
             }
         }
     }

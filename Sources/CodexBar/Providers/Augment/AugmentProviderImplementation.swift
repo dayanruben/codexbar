@@ -9,6 +9,35 @@ struct AugmentProviderImplementation: ProviderImplementation {
     let id: UsageProvider = .augment
 
     @MainActor
+    func observeSettings(_ settings: SettingsStore) {
+        _ = settings.augmentCookieSource
+        _ = settings.augmentCookieHeader
+    }
+
+    @MainActor
+    func settingsSnapshot(context: ProviderSettingsSnapshotContext) -> ProviderSettingsSnapshotContribution? {
+        .augment(context.settings.augmentSettingsSnapshot(tokenOverride: context.tokenOverride))
+    }
+
+    @MainActor
+    func tokenAccountsVisibility(context: ProviderSettingsContext, support: TokenAccountSupport) -> Bool {
+        guard support.requiresManualCookieSource else { return true }
+        if !context.settings.tokenAccounts(for: context.provider).isEmpty { return true }
+        return context.settings.augmentCookieSource == .manual
+    }
+
+    @MainActor
+    func applyTokenAccountCookieSource(settings: SettingsStore) {
+        if settings.augmentCookieSource != .manual {
+            settings.augmentCookieSource = .manual
+        }
+    }
+
+    func makeRuntime() -> (any ProviderRuntime)? {
+        AugmentProviderRuntime()
+    }
+
+    @MainActor
     func settingsPickers(context: ProviderSettingsContext) -> [ProviderSettingsPickerDescriptor] {
         let cookieBinding = Binding(
             get: { context.settings.augmentCookieSource.rawValue },
@@ -50,5 +79,20 @@ struct AugmentProviderImplementation: ProviderImplementation {
     func settingsFields(context: ProviderSettingsContext) -> [ProviderSettingsFieldDescriptor] {
         _ = context
         return []
+    }
+
+    @MainActor
+    func appendActionMenuEntries(context: ProviderMenuActionContext, entries: inout [ProviderMenuEntry]) {
+        entries.append(.action("Refresh Session", .refreshAugmentSession))
+
+        if let error = context.store.error(for: .augment) {
+            if error.contains("session has expired") ||
+                error.contains("No Augment session cookie found")
+            {
+                entries.append(.action(
+                    "Open Augment (Log Out & Back In)",
+                    .loginToProvider(url: "https://app.augmentcode.com")))
+            }
+        }
     }
 }

@@ -86,13 +86,14 @@ extension UsageStore {
             provider: provider,
             settings: self.settings,
             tokenOverride: override)
+        let verbose = self.settings.isVerboseLoggingEnabled
         let context = ProviderFetchContext(
             runtime: .app,
             sourceMode: sourceMode,
             includeCredits: false,
             webTimeout: 60,
             webDebugDumpHTML: false,
-            verbose: false,
+            verbose: verbose,
             env: env,
             settings: snapshot,
             fetcher: self.codexFetcher,
@@ -102,23 +103,9 @@ extension UsageStore {
     }
 
     func sourceMode(for provider: UsageProvider) -> ProviderSourceMode {
-        switch provider {
-        case .codex:
-            switch self.settings.codexUsageDataSource {
-            case .auto: .auto
-            case .oauth: .oauth
-            case .cli: .cli
-            }
-        case .claude:
-            switch self.settings.claudeUsageDataSource {
-            case .auto: .auto
-            case .oauth: .oauth
-            case .web: .web
-            case .cli: .cli
-            }
-        default:
-            .auto
-        }
+        ProviderCatalog.implementation(for: provider)?
+            .sourceMode(context: ProviderSourceModeContext(provider: provider, settings: self.settings))
+            ?? .auto
     }
 
     private struct ResolvedAccountOutcome {

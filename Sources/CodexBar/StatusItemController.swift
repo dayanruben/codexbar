@@ -13,6 +13,9 @@ protocol StatusItemControlling: AnyObject {
 
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControlling {
+    // Disable SwiftUI menu cards + menu refresh work in tests to avoid swiftpm-testing-helper crashes.
+    static var menuCardRenderingEnabled = !SettingsStore.isRunningTests
+    static var menuRefreshEnabled = !SettingsStore.isRunningTests
     typealias Factory = (UsageStore, SettingsStore, AccountInfo, UpdaterProviding, PreferencesSelection)
         -> StatusItemControlling
     static let defaultFactory: Factory = { store, settings, account, updater, selection in
@@ -74,12 +77,12 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var animationPhase: Double = 0
     var animationPattern: LoadingPattern = .knightRider
     private var lastConfigRevision: Int
-    private var lastProviderOrderRaw: [String]
+    private var lastProviderOrder: [UsageProvider]
     private var lastMergeIcons: Bool
     private var lastSwitcherShowsIcons: Bool
     /// Tracks which providers the merged menu's switcher was built with, to detect when it needs full rebuild.
     var lastSwitcherProviders: [UsageProvider] = []
-    let loginLogger = CodexBarLog.logger("login")
+    let loginLogger = CodexBarLog.logger(LogCategories.login)
     var selectedMenuProvider: UsageProvider? {
         get { self.settings.selectedMenuProvider }
         set { self.settings.selectedMenuProvider = newValue }
@@ -133,7 +136,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         settings: SettingsStore,
         account: AccountInfo,
         updater: UpdaterProviding,
-        preferencesSelection: PreferencesSelection)
+        preferencesSelection: PreferencesSelection,
+        statusBar: NSStatusBar = .system)
     {
         self.store = store
         self.settings = settings
@@ -141,11 +145,10 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         self.updater = updater
         self.preferencesSelection = preferencesSelection
         self.lastConfigRevision = settings.configRevision
-        self.lastProviderOrderRaw = settings.providerOrderRaw
+        self.lastProviderOrder = settings.providerOrder
         self.lastMergeIcons = settings.mergeIcons
         self.lastSwitcherShowsIcons = settings.switcherShowsIcons
-        let bar = NSStatusBar.system
-        let item = bar.statusItem(withLength: NSStatusItem.variableLength)
+        let item = statusBar.statusItem(withLength: NSStatusItem.variableLength)
         // Ensure the icon is rendered at 1:1 without resampling (crisper edges for template images).
         item.button?.imageScaling = .scaleNone
         self.statusItem = item
@@ -268,9 +271,9 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
             self.lastConfigRevision = revision
             shouldRefresh = true
         }
-        let orderRaw = self.settings.providerOrderRaw
-        if orderRaw != self.lastProviderOrderRaw {
-            self.lastProviderOrderRaw = orderRaw
+        let order = self.settings.providerOrder
+        if order != self.lastProviderOrder {
+            self.lastProviderOrder = order
             shouldRefresh = true
         }
         let mergeIcons = self.settings.mergeIcons
@@ -288,7 +291,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
 
     private func handleSettingsChange(reason: String) {
         let configChanged = self.settings.configRevision != self.lastConfigRevision
-        let orderChanged = self.settings.providerOrderRaw != self.lastProviderOrderRaw
+        let orderChanged = self.settings.providerOrder != self.lastProviderOrder
         let shouldRefreshOpenMenus = self.shouldRefreshOpenMenusForProviderSwitcher()
         self.invalidateMenus()
         if orderChanged || configChanged {

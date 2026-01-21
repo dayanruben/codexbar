@@ -9,6 +9,42 @@ struct MiniMaxProviderImplementation: ProviderImplementation {
     let id: UsageProvider = .minimax
 
     @MainActor
+    func presentation(context _: ProviderPresentationContext) -> ProviderPresentation {
+        ProviderPresentation { context in
+            context.store.sourceLabel(for: context.provider)
+        }
+    }
+
+    @MainActor
+    func observeSettings(_ settings: SettingsStore) {
+        _ = settings.minimaxCookieSource
+        _ = settings.minimaxCookieHeader
+        _ = settings.minimaxAPIToken
+        _ = settings.minimaxAPIRegion
+    }
+
+    @MainActor
+    func settingsSnapshot(context: ProviderSettingsSnapshotContext) -> ProviderSettingsSnapshotContribution? {
+        .minimax(context.settings.minimaxSettingsSnapshot(tokenOverride: context.tokenOverride))
+    }
+
+    @MainActor
+    func tokenAccountsVisibility(context: ProviderSettingsContext, support: TokenAccountSupport) -> Bool {
+        guard support.requiresManualCookieSource else { return true }
+        if !context.settings.tokenAccounts(for: context.provider).isEmpty { return true }
+        context.settings.ensureMiniMaxAPITokenLoaded()
+        if context.settings.minimaxAuthMode().usesAPIToken { return false }
+        return context.settings.minimaxCookieSource == .manual
+    }
+
+    @MainActor
+    func applyTokenAccountCookieSource(settings: SettingsStore) {
+        if settings.minimaxCookieSource != .manual {
+            settings.minimaxCookieSource = .manual
+        }
+    }
+
+    @MainActor
     func settingsPickers(context: ProviderSettingsContext) -> [ProviderSettingsPickerDescriptor] {
         context.settings.ensureMiniMaxAPITokenLoaded()
         let authMode: () -> MiniMaxAuthMode = {

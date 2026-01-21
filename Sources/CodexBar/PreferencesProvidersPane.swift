@@ -106,13 +106,6 @@ struct ProvidersPane: View {
 
     func providerSubtitle(_ provider: UsageProvider) -> String {
         let meta = self.store.metadata(for: provider)
-        let cliName = meta.cliName
-        let version = self.store.version(for: provider)
-        var versionText = version ?? "not detected"
-        if provider == .claude, let parenRange = versionText.range(of: "(") {
-            versionText = versionText[..<parenRange.lowerBound].trimmingCharacters(in: .whitespaces)
-        }
-
         let usageText: String
         if let snapshot = self.store.snapshot(for: provider) {
             let relative = snapshot.updatedAt.relativeDescription()
@@ -123,19 +116,15 @@ struct ProvidersPane: View {
             usageText = "usage not fetched yet"
         }
 
-        let detailLine: String = if cliName == "codex" {
-            versionText
-        } else if provider == .cursor || provider == .opencode {
-            "web"
-        } else if provider == .zai || provider == .synthetic {
-            "api"
-        } else if provider == .minimax {
-            self.store.sourceLabel(for: provider)
-        } else if provider == .kimi {
-            "web"
-        } else {
-            "\(cliName) \(versionText)"
-        }
+        let presentationContext = ProviderPresentationContext(
+            provider: provider,
+            settings: self.settings,
+            store: self.store,
+            metadata: meta)
+        let presentation = ProviderCatalog.implementation(for: provider)?
+            .presentation(context: presentationContext)
+            ?? ProviderPresentation(detailLine: ProviderPresentation.standardDetailLine)
+        let detailLine = presentation.detailLine(presentationContext)
 
         return "\(detailLine)\n\(usageText)"
     }
@@ -174,6 +163,7 @@ struct ProvidersPane: View {
 
     func tokenAccountDescriptor(for provider: UsageProvider) -> ProviderSettingsTokenAccountsDescriptor? {
         guard let support = TokenAccountSupportCatalog.support(for: provider) else { return nil }
+        let context = self.makeSettingsContext(provider: provider)
         return ProviderSettingsTokenAccountsDescriptor(
             id: "token-accounts-\(provider.rawValue)",
             title: support.title,
@@ -181,22 +171,10 @@ struct ProvidersPane: View {
             placeholder: support.placeholder,
             provider: provider,
             isVisible: {
-                guard support.requiresManualCookieSource else { return true }
-                if !self.settings.tokenAccounts(for: provider).isEmpty { return true }
-                switch provider {
-                case .claude: return self.settings.claudeCookieSource == .manual
-                case .cursor: return self.settings.cursorCookieSource == .manual
-                case .opencode: return self.settings.opencodeCookieSource == .manual
-                case .factory: return self.settings.factoryCookieSource == .manual
-                case .minimax:
-                    self.settings.ensureMiniMaxAPITokenLoaded()
-                    if self.settings.minimaxAuthMode().usesAPIToken {
-                        return false
-                    }
-                    return self.settings.minimaxCookieSource == .manual
-                case .augment: return self.settings.augmentCookieSource == .manual
-                default: return true
-                }
+                ProviderCatalog.implementation(for: provider)?
+                    .tokenAccountsVisibility(context: context, support: support)
+                    ?? (!support.requiresManualCookieSource ||
+                        !context.settings.tokenAccounts(for: provider).isEmpty)
             },
             accounts: { self.settings.tokenAccounts(for: provider) },
             activeIndex: {
