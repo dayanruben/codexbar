@@ -290,17 +290,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func loadClassicIcon() -> NSImage? {
-        if let url = Bundle.module.url(forResource: "Icon-classic", withExtension: "icns"),
-           let image = NSImage(contentsOf: url)
-        {
-            return image
+        guard let url = self.classicIconURL(),
+              let image = NSImage(contentsOf: url)
+        else {
+            return nil
         }
-        if let url = Bundle.main.url(forResource: "Icon-classic", withExtension: "icns"),
-           let image = NSImage(contentsOf: url)
-        {
-            return image
-        }
-        return nil
+        return image
+    }
+
+    private static func classicIconURL() -> URL? {
+        Bundle.main.url(forResource: "Icon-classic", withExtension: "icns")
     }
 
     private func ensureStatusController() {
