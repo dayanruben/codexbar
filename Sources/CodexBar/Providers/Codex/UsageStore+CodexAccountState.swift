@@ -11,6 +11,7 @@ enum CodexAccountScopedRefreshPhase: Sendable {
 
 struct CodexAccountScopedRefreshGuard: Equatable, Sendable {
     let source: CodexActiveSource
+    let identity: CodexIdentity
     let accountKey: String?
 }
 
@@ -87,9 +88,21 @@ extension UsageStore {
         source: CodexActiveSource? = nil,
         accountEmail: String?)
     {
-        guard let accountKey = Self.normalizeCodexAccountScopedKey(accountEmail) else { return }
+        let resolvedSource = source ?? self.settings.codexResolvedActiveSource
+        let resolvedEmail = Self.normalizeCodexAccountScopedEmail(accountEmail)
+        let currentIdentity = self.currentCodexRuntimeIdentity(
+            source: resolvedSource,
+            preferCurrentSnapshot: false,
+            allowLastKnownLiveFallback: false)
+        let resolvedIdentity = CodexIdentityMatcher.normalized(
+            currentIdentity == .unresolved ? CodexIdentityResolver.resolve(accountId: nil, email: resolvedEmail) :
+                currentIdentity,
+            fallbackEmail: resolvedEmail ?? "")
+        let accountKey = Self.normalizeCodexAccountScopedKey(resolvedEmail ?? Self.email(for: resolvedIdentity))
+        guard resolvedIdentity != .unresolved || accountKey != nil else { return }
         self.lastCodexAccountScopedRefreshGuard = CodexAccountScopedRefreshGuard(
-            source: source ?? self.settings.codexResolvedActiveSource,
+            source: resolvedSource,
+            identity: resolvedIdentity,
             accountKey: accountKey)
     }
 
@@ -99,22 +112,28 @@ extension UsageStore {
     {
         CodexAccountScopedRefreshGuard(
             source: self.settings.codexResolvedActiveSource,
+            identity: self.currentCodexRuntimeIdentity(
+                source: self.settings.codexResolvedActiveSource,
+                preferCurrentSnapshot: preferCurrentSnapshot,
+                allowLastKnownLiveFallback: allowLastKnownLiveFallback),
             accountKey: self.codexAccountScopedRefreshKey(
                 preferCurrentSnapshot: preferCurrentSnapshot,
                 allowLastKnownLiveFallback: allowLastKnownLiveFallback))
     }
 
     func currentCodexOpenAIWebRefreshGuard() -> CodexAccountScopedRefreshGuard {
+        let source = self.settings.codexResolvedActiveSource
         let accountKey: String? = switch self.settings.codexResolvedActiveSource {
         case .liveSystem:
             Self
                 .normalizeCodexAccountScopedKey(self.settings.codexAccountReconciliationSnapshot.liveSystemAccount?
                     .email)
         case .managedAccount:
-            Self.normalizeCodexAccountScopedKey(self.settings.activeManagedCodexAccount?.email)
+            Self.normalizeCodexAccountScopedKey(self.currentManagedCodexRuntimeEmail())
         }
         return CodexAccountScopedRefreshGuard(
-            source: self.settings.codexResolvedActiveSource,
+            source: source,
+            identity: self.currentCodexOpenAIWebIdentity(source: source),
             accountKey: accountKey)
     }
 
@@ -125,18 +144,18 @@ extension UsageStore {
         let currentGuard = self.currentCodexAccountScopedRefreshGuard()
         guard currentGuard.source == expectedGuard.source else { return false }
 
-        if let expectedKey = expectedGuard.accountKey {
-            return currentGuard.accountKey == expectedKey
+        if expectedGuard.identity != .unresolved {
+            return currentGuard.identity == expectedGuard.identity
         }
 
-        let resultKey = Self.normalizeCodexAccountScopedKey(usage.accountEmail(for: .codex))
-        if let currentKey = currentGuard.accountKey {
-            return resultKey == currentKey
+        let resultIdentity = CodexIdentityResolver.resolve(accountId: nil, email: usage.accountEmail(for: .codex))
+        if currentGuard.identity != .unresolved {
+            return resultIdentity == currentGuard.identity
         }
 
         switch currentGuard.source {
         case .liveSystem:
-            return resultKey != nil
+            return resultIdentity != .unresolved
         case .managedAccount:
             return false
         }
@@ -146,40 +165,43 @@ extension UsageStore {
         let currentGuard = self.currentCodexAccountScopedRefreshGuard()
         guard currentGuard.source == expectedGuard.source else { return false }
 
-        if let expectedKey = expectedGuard.accountKey {
-            return currentGuard.accountKey == expectedKey
+        if expectedGuard.identity != .unresolved {
+            return currentGuard.identity == expectedGuard.identity
         }
 
-        return currentGuard.accountKey == nil
+        return currentGuard.identity == .unresolved
     }
 
     func shouldApplyCodexScopedNonUsageResult(expectedGuard: CodexAccountScopedRefreshGuard) -> Bool {
         let currentGuard = self.currentCodexAccountScopedRefreshGuard()
         guard currentGuard.source == expectedGuard.source else { return false }
-        guard let expectedKey = expectedGuard.accountKey else { return false }
-        return currentGuard.accountKey == expectedKey
+        guard expectedGuard.identity != .unresolved else { return false }
+        return currentGuard.identity == expectedGuard.identity
     }
 
     func shouldApplyOpenAIDashboardResult(
         expectedGuard: CodexAccountScopedRefreshGuard,
         dashboardAccountEmail: String?) -> Bool
     {
-        if let expectedKey = expectedGuard.accountKey {
+        if expectedGuard.identity != .unresolved {
             let currentGuard = self.currentCodexAccountScopedRefreshGuard()
             guard currentGuard.source == expectedGuard.source else { return false }
-            return currentGuard.accountKey == expectedKey
+            return currentGuard.identity == expectedGuard.identity
         }
 
         let currentGuard = self.currentCodexOpenAIWebRefreshGuard()
         guard currentGuard.source == expectedGuard.source else { return false }
         guard case .liveSystem = expectedGuard.source else { return false }
-        guard currentGuard.accountKey == nil else { return false }
-        guard let dashboardKey = Self.normalizeCodexAccountScopedKey(dashboardAccountEmail) else { return false }
-        let currentTargetKey = Self.normalizeCodexAccountScopedKey(self.currentCodexOpenAIWebTargetEmail(
-            allowCurrentSnapshotFallback: true,
-            allowLastKnownLiveFallback: false))
-        if let currentTargetKey {
-            return dashboardKey == currentTargetKey
+        guard currentGuard.identity == .unresolved else { return false }
+        let dashboardIdentity = CodexIdentityResolver.resolve(accountId: nil, email: dashboardAccountEmail)
+        guard dashboardIdentity != .unresolved else { return false }
+        let currentTargetIdentity = CodexIdentityResolver.resolve(
+            accountId: nil,
+            email: self.currentCodexOpenAIWebTargetEmail(
+                allowCurrentSnapshotFallback: true,
+                allowLastKnownLiveFallback: false))
+        if currentTargetIdentity != .unresolved {
+            return dashboardIdentity == currentTargetIdentity
         }
         return true
     }
@@ -232,8 +254,74 @@ extension UsageStore {
             if self.settings.codexSettingsSnapshot(tokenOverride: nil).managedAccountStoreUnreadable {
                 return nil
             }
-            return Self.normalizeCodexAccountScopedEmail(self.settings.activeManagedCodexAccount?.email)
+            return self.currentManagedCodexRuntimeEmail()
         }
+    }
+
+    func currentCodexRuntimeIdentity(
+        source: CodexActiveSource,
+        preferCurrentSnapshot: Bool,
+        allowLastKnownLiveFallback: Bool) -> CodexIdentity
+    {
+        switch source {
+        case .liveSystem:
+            if let liveSystem = self.settings.codexAccountReconciliationSnapshot.liveSystemAccount {
+                return self.settings.codexAccountReconciliationSnapshot.runtimeIdentity(for: liveSystem)
+            }
+
+            if preferCurrentSnapshot,
+               let snapshotEmail = Self
+                   .normalizeCodexAccountScopedEmail(self.snapshots[.codex]?.accountEmail(for: .codex))
+            {
+                self.lastKnownLiveSystemCodexEmail = snapshotEmail
+                return CodexIdentityResolver.resolve(accountId: nil, email: snapshotEmail)
+            }
+
+            if allowLastKnownLiveFallback,
+               let lastKnown = Self.normalizeCodexAccountScopedEmail(self.lastKnownLiveSystemCodexEmail)
+            {
+                return CodexIdentityResolver.resolve(accountId: nil, email: lastKnown)
+            }
+
+            return .unresolved
+        case .managedAccount:
+            guard !self.settings.codexSettingsSnapshot(tokenOverride: nil).managedAccountStoreUnreadable else {
+                return .unresolved
+            }
+            guard let activeStoredAccount = self.settings.codexAccountReconciliationSnapshot.activeStoredAccount else {
+                return .unresolved
+            }
+            return self.settings.codexAccountReconciliationSnapshot.runtimeIdentity(for: activeStoredAccount)
+        }
+    }
+
+    private func currentCodexOpenAIWebIdentity(source: CodexActiveSource) -> CodexIdentity {
+        switch source {
+        case .liveSystem:
+            guard let liveSystem = self.settings.codexAccountReconciliationSnapshot.liveSystemAccount else {
+                return .unresolved
+            }
+            return self.settings.codexAccountReconciliationSnapshot.runtimeIdentity(for: liveSystem)
+        case .managedAccount:
+            guard !self.settings.codexSettingsSnapshot(tokenOverride: nil).managedAccountStoreUnreadable else {
+                return .unresolved
+            }
+            guard let activeStoredAccount = self.settings.codexAccountReconciliationSnapshot.activeStoredAccount else {
+                return .unresolved
+            }
+            return self.settings.codexAccountReconciliationSnapshot.runtimeIdentity(for: activeStoredAccount)
+        }
+    }
+
+    func currentManagedCodexRuntimeEmail() -> String? {
+        guard !self.settings.codexSettingsSnapshot(tokenOverride: nil).managedAccountStoreUnreadable else {
+            return nil
+        }
+        guard let activeStoredAccount = self.settings.codexAccountReconciliationSnapshot.activeStoredAccount else {
+            return nil
+        }
+        return Self.normalizeCodexAccountScopedEmail(
+            self.settings.codexAccountReconciliationSnapshot.runtimeEmail(for: activeStoredAccount))
     }
 
     private func clearCodexOpenAIWebStateForAccountTransition(targetEmail: String?) {
@@ -274,5 +362,25 @@ extension UsageStore {
 
     static func normalizeCodexAccountScopedKey(_ email: String?) -> String? {
         self.normalizeCodexAccountScopedEmail(email)?.lowercased()
+    }
+
+    static func codexIdentityGuardKey(_ identity: CodexIdentity) -> String? {
+        switch identity {
+        case let .providerAccount(id):
+            "provider:\(id)"
+        case let .emailOnly(normalizedEmail):
+            "email:\(normalizedEmail)"
+        case .unresolved:
+            nil
+        }
+    }
+
+    private static func email(for identity: CodexIdentity) -> String? {
+        switch identity {
+        case .providerAccount, .unresolved:
+            nil
+        case let .emailOnly(normalizedEmail):
+            normalizedEmail
+        }
     }
 }

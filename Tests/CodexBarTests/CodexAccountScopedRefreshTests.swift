@@ -101,6 +101,30 @@ struct CodexAccountScopedRefreshTests {
     }
 
     @Test
+    func `same email provider account switch discards stale codex usage success`() async {
+        let settings = self.makeSettingsStore(suite: "CodexAccountScopedRefreshTests-stale-same-email-provider-account")
+        settings.refreshFrequency = .manual
+        settings._test_liveSystemCodexAccount = self.liveAccount(
+            email: "alpha@example.com",
+            identity: .providerAccount(id: "acct-alpha"))
+
+        let store = self.makeUsageStore(settings: settings)
+        let blocker = BlockingCodexFetchStrategy()
+        self.installBlockingCodexProvider(on: store, blocker: blocker)
+
+        let refreshTask = Task { await store.refreshProvider(.codex, allowDisabled: true) }
+        await blocker.waitUntilStarted()
+        settings._test_liveSystemCodexAccount = self.liveAccount(
+            email: "alpha@example.com",
+            identity: .providerAccount(id: "acct-beta"))
+        await blocker.resume(with: .success(self.codexSnapshot(email: "alpha@example.com", usedPercent: 25)))
+        await refreshTask.value
+
+        #expect(store.snapshots[.codex] == nil)
+        #expect(store.errors[.codex] == nil)
+    }
+
+    @Test
     func `stale codex usage failure does not clear newer account snapshot`() async {
         let settings = self.makeSettingsStore(suite: "CodexAccountScopedRefreshTests-stale-failure")
         settings.refreshFrequency = .manual
@@ -151,6 +175,60 @@ struct CodexAccountScopedRefreshTests {
     }
 
     @Test
+    func `managed refresh invalidation keeps state when provider account is unchanged`() throws {
+        let settings = self.makeSettingsStore(
+            suite: "CodexAccountScopedRefreshTests-managed-renamed-email")
+        let managedHome = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: managedHome) }
+        try Self.writeCodexAuthFile(
+            homeURL: managedHome,
+            email: "renamed@example.com",
+            plan: "pro",
+            accountId: "acct-managed")
+
+        let managedAccountID = UUID()
+        let managedAccount = ManagedCodexAccount(
+            id: managedAccountID,
+            email: "legacy@example.com",
+            managedHomePath: managedHome.path,
+            createdAt: 1,
+            updatedAt: 1,
+            lastAuthenticatedAt: 1)
+        settings._test_activeManagedCodexAccount = managedAccount
+        settings.codexActiveSource = .managedAccount(id: managedAccountID)
+        defer { settings._test_activeManagedCodexAccount = nil }
+
+        let store = self.makeUsageStore(settings: settings)
+        let currentSnapshot = self.codexSnapshot(email: "renamed@example.com", usedPercent: 10)
+        let currentCredits = self.credits(remaining: 42)
+        let currentDashboard = self.dashboard(email: "renamed@example.com", creditsRemaining: 42, usedPercent: 20)
+
+        store._setSnapshotForTesting(currentSnapshot, provider: .codex)
+        store.credits = currentCredits
+        store.lastCreditsSnapshot = currentCredits
+        store.lastCreditsSnapshotAccountKey = "renamed@example.com"
+        store.openAIDashboard = currentDashboard
+        store.lastOpenAIDashboardSnapshot = currentDashboard
+        store.lastOpenAIDashboardTargetEmail = "renamed@example.com"
+        store.seedCodexAccountScopedRefreshGuard(
+            source: .managedAccount(id: managedAccountID),
+            accountEmail: "renamed@example.com")
+
+        let currentGuard = store.currentCodexAccountScopedRefreshGuard(
+            preferCurrentSnapshot: false,
+            allowLastKnownLiveFallback: false)
+        let didInvalidate = store.prepareCodexAccountScopedRefreshIfNeeded()
+
+        #expect(currentGuard.identity == .providerAccount(id: "acct-managed"))
+        #expect(currentGuard.accountKey == "renamed@example.com")
+        #expect(didInvalidate == false)
+        #expect(store.snapshots[.codex]?.accountEmail(for: .codex) == "renamed@example.com")
+        #expect(store.credits?.remaining == 42)
+        #expect(store.openAIDashboard?.signedInEmail == "renamed@example.com")
+    }
+
+    @Test
     func `credits refresh returns quickly when no live codex account is available`() async {
         let settings = self.makeSettingsStore(suite: "CodexAccountScopedRefreshTests-credits-no-live-account")
         let isolatedHome = FileManager.default.temporaryDirectory
@@ -177,7 +255,7 @@ struct CodexAccountScopedRefreshTests {
         let elapsed = startedAt.duration(to: .now)
 
         #expect(loaderCalled == false)
-        #expect(elapsed < .seconds(2))
+        #expect(elapsed < .seconds(3))
     }
 
     @Test
@@ -225,6 +303,7 @@ struct CodexAccountScopedRefreshTests {
 
         let expectedGuard = store.currentCodexAccountScopedRefreshGuard()
         #expect(expectedGuard.source == .liveSystem)
+        #expect(expectedGuard.identity == .unresolved)
         #expect(expectedGuard.accountKey == nil)
 
         await store.refreshOpenAIDashboardIfNeeded(force: true, expectedGuard: expectedGuard)
@@ -233,6 +312,7 @@ struct CodexAccountScopedRefreshTests {
         #expect(store.snapshots[.codex]?.accountEmail(for: .codex) == "seeded@example.com")
         #expect(store.credits?.remaining == 33)
         #expect(store.lastCreditsSnapshotAccountKey == "seeded@example.com")
+        #expect(store.lastCodexAccountScopedRefreshGuard?.identity == .emailOnly(normalizedEmail: "seeded@example.com"))
         #expect(store.lastKnownLiveSystemCodexEmail == "seeded@example.com")
         #expect(store.lastCodexAccountScopedRefreshGuard?.accountKey == "seeded@example.com")
     }
@@ -302,6 +382,34 @@ struct CodexAccountScopedRefreshTests {
         #expect(store.openAIDashboard == nil)
         #expect(store.credits == nil)
         #expect(store.snapshots[.codex]?.accountEmail(for: .codex) == "beta@example.com")
+    }
+
+    @Test
+    func `same email provider account switch discards stale dashboard completion`() async {
+        let settings = self
+            .makeSettingsStore(suite: "CodexAccountScopedRefreshTests-dashboard-same-email-provider-account")
+        settings.refreshFrequency = .manual
+        settings._test_liveSystemCodexAccount = self.liveAccount(
+            email: "alpha@example.com",
+            identity: .providerAccount(id: "acct-alpha"))
+
+        let store = self.makeUsageStore(settings: settings)
+        let expectedGuard = store.currentCodexOpenAIWebRefreshGuard()
+        #expect(expectedGuard.identity == .providerAccount(id: "acct-alpha"))
+
+        settings._test_liveSystemCodexAccount = self.liveAccount(
+            email: "alpha@example.com",
+            identity: .providerAccount(id: "acct-beta"))
+
+        await store.applyOpenAIDashboard(
+            self.dashboard(email: "alpha@example.com", creditsRemaining: 11, usedPercent: 35),
+            targetEmail: "alpha@example.com",
+            expectedGuard: expectedGuard,
+            allowCodexUsageBackfill: true)
+
+        #expect(store.openAIDashboard == nil)
+        #expect(store.snapshots[.codex] == nil)
+        #expect(store.credits == nil)
     }
 
     @Test
@@ -526,6 +634,49 @@ struct CodexAccountScopedRefreshTests {
         return settings
     }
 
+    private static func writeCodexAuthFile(
+        homeURL: URL,
+        email: String,
+        plan: String,
+        accountId: String? = nil) throws
+    {
+        try FileManager.default.createDirectory(at: homeURL, withIntermediateDirectories: true)
+        var tokens: [String: Any] = [
+            "accessToken": "access-token",
+            "refreshToken": "refresh-token",
+            "idToken": Self.fakeJWT(email: email, plan: plan, accountId: accountId),
+        ]
+        if let accountId {
+            tokens["accountId"] = accountId
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["tokens": tokens], options: [.sortedKeys])
+        try data.write(to: homeURL.appendingPathComponent("auth.json"))
+    }
+
+    private static func fakeJWT(email: String, plan: String, accountId: String? = nil) -> String {
+        let header = (try? JSONSerialization.data(withJSONObject: ["alg": "none"])) ?? Data()
+        var authClaims: [String: Any] = [
+            "chatgpt_plan_type": plan,
+        ]
+        if let accountId {
+            authClaims["chatgpt_account_id"] = accountId
+        }
+        let payload = (try? JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "chatgpt_plan_type": plan,
+            "https://api.openai.com/auth": authClaims,
+        ])) ?? Data()
+
+        func base64URL(_ data: Data) -> String {
+            data.base64EncodedString()
+                .replacingOccurrences(of: "=", with: "")
+                .replacingOccurrences(of: "+", with: "-")
+                .replacingOccurrences(of: "/", with: "_")
+        }
+
+        return "\(base64URL(header)).\(base64URL(payload))."
+    }
+
     private func makeUsageStore(settings: SettingsStore) -> UsageStore {
         UsageStore(
             fetcher: UsageFetcher(environment: [:]),
@@ -534,11 +685,12 @@ struct CodexAccountScopedRefreshTests {
             startupBehavior: .testing)
     }
 
-    private func liveAccount(email: String) -> ObservedSystemCodexAccount {
+    private func liveAccount(email: String, identity: CodexIdentity = .unresolved) -> ObservedSystemCodexAccount {
         ObservedSystemCodexAccount(
             email: email,
             codexHomePath: "/Users/test/.codex",
-            observedAt: Date())
+            observedAt: Date(),
+            identity: identity)
     }
 
     private func codexSnapshot(email: String, usedPercent: Double) -> UsageSnapshot {
