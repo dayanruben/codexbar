@@ -363,6 +363,50 @@ struct CodexAccountScopedRefreshTests {
     }
 
     @Test
+    func `no usable codex usage does not block weekly only dashboard backfill`() async {
+        let settings = self.makeSettingsStore(
+            suite: "CodexAccountScopedRefreshTests-no-usable-usage-weekly-dashboard-backfill")
+        settings.refreshFrequency = .manual
+        settings.codexCookieSource = .auto
+        settings._test_liveSystemCodexAccount = self.liveAccount(
+            email: "weekly@example.com",
+            identity: .providerAccount(id: "acct-weekly"))
+
+        let store = self.makeUsageStore(settings: settings)
+        self.installFailingCodexProvider(on: store, error: UsageError.noRateLimitsFound)
+
+        await store.refreshProvider(.codex, allowDisabled: true)
+
+        #expect(store.snapshots[.codex] == nil)
+
+        await store.applyOpenAIDashboard(
+            OpenAIDashboardSnapshot(
+                signedInEmail: "weekly@example.com",
+                codeReviewRemainingPercent: 88,
+                creditEvents: [],
+                dailyBreakdown: [],
+                usageBreakdown: [],
+                creditsPurchaseURL: nil,
+                primaryLimit: nil,
+                secondaryLimit: RateWindow(
+                    usedPercent: 27,
+                    windowMinutes: 10080,
+                    resetsAt: Date(timeIntervalSince1970: 1_775_000_000),
+                    resetDescription: "next week"),
+                creditsRemaining: 14,
+                accountPlan: "Pro",
+                updatedAt: Date(timeIntervalSince1970: 1_774_900_000)),
+            targetEmail: "weekly@example.com",
+            allowCodexUsageBackfill: true)
+
+        #expect(store.openAIDashboard?.signedInEmail == "weekly@example.com")
+        #expect(store.snapshots[.codex]?.primary == nil)
+        #expect(store.snapshots[.codex]?.secondary?.usedPercent == 27)
+        #expect(store.snapshots[.codex]?.secondary?.windowMinutes == 10080)
+        #expect(store.lastSourceLabels[.codex] == "openai-web")
+    }
+
+    @Test
     func `dashboard display only keeps dashboard visible and clears dashboard derived data`() async throws {
         let settings = self.makeSettingsStore(suite: "CodexAccountScopedRefreshTests-dashboard-display-only-cleanup")
         let managedHome = FileManager.default.temporaryDirectory
@@ -683,6 +727,55 @@ struct CodexAccountScopedRefreshTests {
         #expect(snapshots.count == 2)
         #expect(snapshots[0].entries.contains(where: { $0.provider == .codex }) == false)
         #expect(snapshots[1].entries.first { $0.provider == .codex }?.creditsRemaining == 77)
+    }
+
+    @Test
+    func `widget snapshot excludes display only dashboard code review`() async throws {
+        let settings = self.makeSettingsStore(suite: "CodexAccountScopedRefreshTests-widget-display-only-dashboard")
+        settings.refreshFrequency = .manual
+
+        let store = self.makeUsageStore(settings: settings)
+        store._setSnapshotForTesting(self.codexSnapshot(email: "alpha@example.com", usedPercent: 18), provider: .codex)
+        store.openAIDashboard = self.dashboard(
+            email: "alpha@example.com",
+            creditsRemaining: 12,
+            usedPercent: 20)
+        store.openAIDashboardAttachmentAuthorized = false
+
+        var widgetSnapshots: [WidgetSnapshot] = []
+        store._test_widgetSnapshotSaveOverride = { widgetSnapshots.append($0) }
+        defer { store._test_widgetSnapshotSaveOverride = nil }
+
+        store.persistWidgetSnapshot(reason: "display-only-dashboard")
+        await store.widgetSnapshotPersistTask?.value
+
+        let codexEntry = try #require(widgetSnapshots.last?.entries.first { $0.provider == .codex })
+        #expect(codexEntry.creditsRemaining == nil)
+        #expect(codexEntry.codeReviewRemainingPercent == nil)
+    }
+
+    @Test
+    func `widget snapshot includes attached dashboard code review`() async throws {
+        let settings = self.makeSettingsStore(suite: "CodexAccountScopedRefreshTests-widget-attached-dashboard")
+        settings.refreshFrequency = .manual
+
+        let store = self.makeUsageStore(settings: settings)
+        store._setSnapshotForTesting(self.codexSnapshot(email: "alpha@example.com", usedPercent: 18), provider: .codex)
+        store.openAIDashboard = self.dashboard(
+            email: "alpha@example.com",
+            creditsRemaining: 12,
+            usedPercent: 20)
+        store.openAIDashboardAttachmentAuthorized = true
+
+        var widgetSnapshots: [WidgetSnapshot] = []
+        store._test_widgetSnapshotSaveOverride = { widgetSnapshots.append($0) }
+        defer { store._test_widgetSnapshotSaveOverride = nil }
+
+        store.persistWidgetSnapshot(reason: "attached-dashboard")
+        await store.widgetSnapshotPersistTask?.value
+
+        let codexEntry = try #require(widgetSnapshots.last?.entries.first { $0.provider == .codex })
+        #expect(codexEntry.codeReviewRemainingPercent == 88)
     }
 
     @Test
