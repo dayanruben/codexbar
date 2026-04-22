@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23 — Unreleased
+
+### Changes
+- Development ongoing.
+
+### Fixes
+- Codex: clean up cached CLI status probes during app shutdown so `codex -s read-only` workers are not orphaned after restart.
+
 ## 0.22 — 2026-04-21
 
 ### Highlights
