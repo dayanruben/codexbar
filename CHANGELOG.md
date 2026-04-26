@@ -4,12 +4,15 @@
 
 ### Changes
 - Claude: show Designs and Daily Routines usage bars from live Claude OAuth/Web quota data, and restore the Web-mode Sonnet bar (#740). Thanks @AISupplyGuy!
+- Codex: add GPT-5.5 and GPT-5.5 Pro pricing so local cost scanning recognizes the new models.
 - Cursor: add an Extra usage menu bar metric for on-demand budgets (#789). Thanks @huiye98!
 - Mistral: add provider support with monthly spend tracking, browser-cookie import, manual cookies, and CLI/token-account support (#607). Thanks @welcoMattic!
 - Usage: add an opt-in confetti celebration when weekly limits reset after active use (#785). Thanks @zats!
 
 ### Fixes
+- Codex: ignore invalid zero-minute subscription history so the utilization submenu no longer shows duplicate Session tabs.
 - Codex: clean up cached CLI status probes during app shutdown so `codex -s read-only` workers are not orphaned after restart.
+- Droid: preserve Factory session fallbacks, use the current usage endpoint, and clarify browser-login messaging (#792). Thanks @JosephDoUrden for the original stale-session fix!
 - Menu: keep merged-menu cards, switcher rows, wrapped status text, and hosted chart submenus aligned with the real AppKit menu width so menus no longer grow oversized or show narrower chart submenus after width changes. Thanks @ngutman!
 - Widgets: package App Intents metadata for the widget extension and use configuration defaults so configurable widgets load correctly in WidgetKit (#783). Thanks @ngutman and @vincentyangch!
 
