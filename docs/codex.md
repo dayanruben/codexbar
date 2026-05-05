@@ -17,8 +17,8 @@ The OAuth API is the default app source when credentials are available; web acce
 ### App default selection (debug menu disabled)
 1) OAuth API (auth.json credentials).
 2) CLI RPC, with CLI PTY fallback when needed.
-3) If OpenAI cookies are enabled (Automatic or Manual), dashboard extras load in parallel and the source label becomes
-   `primary + openai-web`.
+3) If OpenAI web extras are enabled and a matching OpenAI web session is available (Automatic or Manual cookies),
+   dashboard extras load as a separate follow-up refresh and the source label becomes `primary + openai-web`.
 
 Usage source picker:
 - Preferences → Providers → Codex → Usage source (Auto/OAuth/CLI).
@@ -109,7 +109,8 @@ Usage source picker:
   - Supported pi sessions:
     - `~/.pi/agent/sessions/**/*.jsonl`
 - Scanner:
-  - Native Codex logs parse `event_msg` token_count entries and `turn_context` model markers.
+  - Native Codex logs parse `event_msg` token_count entries and `turn_context` model markers; when both are present,
+    `turn_context` is authoritative for the model bucket.
   - pi sessions count assistant-message usage rows and attribute `openai-codex` assistant usage to Codex.
   - pi assistant usage is bucketed by assistant-turn timestamp, so mixed-model pi sessions can contribute to multiple
     days/models correctly.

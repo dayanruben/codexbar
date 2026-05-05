@@ -725,21 +725,21 @@ extension StatusItemController {
             accounts: display.accounts,
             selectedIndex: display.activeIndex,
             width: width,
-            onSelect: { [weak self, weak menu] index in
-                guard let self, let menu else { return }
+            onSelect: { [weak self, weak menu] index -> Task<Void, Never>? in
+                guard let self, let menu else { return nil }
                 self.settings.setActiveTokenAccountIndex(index, for: display.provider)
                 // Immediately rebuild to show the new selection, then refresh data
                 // and rebuild again once fresh data arrives.
                 self.populateMenu(menu, provider: display.provider)
                 self.markMenuFresh(menu)
                 self.applyIcon(phase: nil)
-                Task { @MainActor [weak self, weak menu] in
+                return Task { @MainActor [weak self, weak menu] in
                     guard let self else { return }
                     await ProviderInteractionContext.$current.withValue(.userInitiated) {
-                        await self.store.refresh()
+                        await self.store.refreshProvider(display.provider)
                     }
                     guard let menu else { return }
-                    self.rebuildOpenMenuIfStillVisible(menu, provider: display.provider)
+                    self.refreshOpenMenuIfStillVisible(menu, provider: display.provider)
                 }
             })
         let item = NSMenuItem()
