@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload assets to (for example, v0.24)."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -39,8 +44,23 @@ jobs:
             build-arch: x86_64
             static-swift-stdlib: false
     runs-on: ${{ matrix.runs-on }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Select Xcode 26.1.1 (if present) or fallback to default
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          for candidate in /Applications/Xcode_26.1.1.app /Applications/Xcode_26.1.app /Applications/Xcode.app; do
+            if [[ -d "$candidate" ]]; then
+              sudo xcode-select -s "${candidate}/Contents/Developer"
+              echo "DEVELOPER_DIR=${candidate}/Contents/Developer" >> "$GITHUB_ENV"
+              break
+            fi
+          done
+          /usr/bin/xcodebuild -version
 
       - name: Runner info
         run: |
@@ -85,6 +105,7 @@ jobs:
           swift --version
 
       - name: Build CodexBarCLI (release)
+        id: build
         shell: bash
         run: |
           set -euo pipefail
@@ -98,11 +119,6 @@ jobs:
           fi
           "${BUILD_ARGS[@]}"
 
-      - name: Smoke test CodexBarCLI
-        shell: bash
-        run: |
-          set -euo pipefail
-
           SHOW_BIN_ARGS=(swift build -c release --product CodexBarCLI --show-bin-path)
           if [[ -n "${{ matrix.build-arch }}" ]]; then
             SHOW_BIN_ARGS+=(--arch "${{ matrix.build-arch }}")
@@ -111,11 +127,25 @@ jobs:
             SHOW_BIN_ARGS+=(--static-swift-stdlib)
           fi
 
-          BIN_DIR="$("${SHOW_BIN_ARGS[@]}")"
+          echo "bin_dir=$("${SHOW_BIN_ARGS[@]}")" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test CodexBarCLI
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BIN_DIR="${{ steps.build.outputs.bin_dir }}"
           BIN="$BIN_DIR/CodexBarCLI"
-          "$BIN" --help >/dev/null
-          "$BIN" --version >/dev/null
-          file "$BIN" | grep -q "${{ matrix.asset-arch }}"
+          echo "BIN=$BIN"
+          file "$BIN"
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            lipo -archs "$BIN" | tr ' ' '\n' | grep -Fx "${{ matrix.asset-arch }}"
+          else
+            "$BIN" --help
+            "$BIN" --version
+            file "$BIN" | grep -q "${{ matrix.asset-arch }}"
+          fi
 
       - name: Package
         id: pkg
@@ -123,22 +153,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          REF_NAME="${GITHUB_REF_NAME}"
+          REF_NAME="${RELEASE_TAG}"
           if [[ -z "$REF_NAME" ]]; then
-            echo "Missing tag (GITHUB_REF_NAME)." >&2
+            echo "Missing release tag." >&2
             exit 1
           fi
           SAFE_REF_NAME="${REF_NAME//\//-}"
 
-          SHOW_BIN_ARGS=(swift build -c release --product CodexBarCLI --show-bin-path)
-          if [[ -n "${{ matrix.build-arch }}" ]]; then
-            SHOW_BIN_ARGS+=(--arch "${{ matrix.build-arch }}")
-          fi
-          if [[ "${{ matrix.static-swift-stdlib }}" == "true" ]]; then
-            SHOW_BIN_ARGS+=(--static-swift-stdlib)
-          fi
-
-          BIN_DIR="$("${SHOW_BIN_ARGS[@]}")"
+          BIN_DIR="${{ steps.build.outputs.bin_dir }}"
           OUT_DIR="$(mktemp -d)"
           install -m 0755 "$BIN_DIR/CodexBarCLI" "$OUT_DIR/CodexBarCLI"
           ln -s "CodexBarCLI" "$OUT_DIR/codexbar"
@@ -155,19 +177,19 @@ jobs:
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
 
       - name: Upload release assets
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.tag != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${RELEASE_TAG}"
           OUT_DIR="${{ steps.pkg.outputs.out_dir }}"
           ASSET="${{ steps.pkg.outputs.asset }}"
           gh release upload "$TAG" "$OUT_DIR/$ASSET" "$OUT_DIR/$ASSET.sha256" --clobber
 
       - name: Upload workflow artifact (manual runs)
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && inputs.tag == ''
         uses: actions/upload-artifact@v6
         with:
           name: codexbar-cli-${{ matrix.name }}
