@@ -49,6 +49,7 @@ headers, source selection, provider ordering, and token accounts are stored in `
 | Codebuff | API token from config/env or `codebuff login` credentials → usage API (`api`). |
 
 ## Codex
+- App Auto: OAuth API first; falls back to CLI only when OAuth credentials are missing or auth/refresh is invalid.
 - Web dashboard (optional, off by default): `https://chatgpt.com/codex/settings/usage` via WebView + browser cookies.
 - Battery saver toggle (currently off by default): reduces routine OpenAI web refreshes but still allows explicit manual refreshes.
 - CLI RPC default: `codex ... app-server` JSON-RPC (`account/read`, `account/rateLimits/read`).
@@ -239,5 +240,13 @@ headers, source selection, provider ordering, and token accounts are stored in `
 - Override base URL with `CODEBUFF_API_URL`.
 - Status: none yet.
 - Details: `docs/codebuff.md`.
+
+## Crof
+- API key from `~/.codexbar/config.json`, `CROF_API_KEY`, or `CROFAI_API_KEY`.
+- Reads `credits`, `requests_plan`, and `usable_requests` from `GET https://crof.ai/usage_api/`.
+- Shows request quota as the primary usage window and dollar credits as the secondary row.
+- Infers the daily request reset from midnight America/Chicago until the usage API exposes reset metadata.
+- Status: none yet.
+- Details: `docs/crof.md`.
 
 See also: `docs/provider.md` for architecture notes.
