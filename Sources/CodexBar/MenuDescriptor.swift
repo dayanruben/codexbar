@@ -148,7 +148,8 @@ struct MenuDescriptor {
             let resetStyle = settings.resetTimeDisplayStyle
             let labels = Self.rateWindowLabels(provider: provider, metadata: meta, snapshot: snap)
             if let primary = snap.primary {
-                let primaryWindow = if provider == .warp || provider == .kilo || provider == .abacus ||
+                let primaryWindow = if provider == .warp || provider == .kilo || provider == .mimo || provider ==
+                    .abacus ||
                     provider == .deepseek
                 {
                     // Some providers use resetDescription for non-reset detail
@@ -167,9 +168,10 @@ struct MenuDescriptor {
                     window: primaryWindow,
                     resetStyle: resetStyle,
                     showUsed: settings.usageBarsShowUsed)
-                if provider == .warp || provider == .kilo || provider == .abacus || provider == .deepseek,
-                   let detail = primary.resetDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !detail.isEmpty
+                if provider == .warp || provider == .kilo || provider == .mimo || provider == .abacus || provider ==
+                    .deepseek,
+                    let detail = primary.resetDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !detail.isEmpty
                 {
                     entries.append(.text(detail, .secondary))
                 }
@@ -184,6 +186,9 @@ struct MenuDescriptor {
                    let pace = store.weeklyPace(provider: provider, window: primary)
                 {
                     let paceSummary = UsagePaceText.weeklySummary(pace: pace)
+                    entries.append(.text(paceSummary, .secondary))
+                }
+                if let paceSummary = UsagePaceText.sessionSummary(provider: provider, window: primary) {
                     entries.append(.text(paceSummary, .secondary))
                 }
             }
@@ -292,13 +297,26 @@ struct MenuDescriptor {
         if provider == .kilo {
             let kiloLogin = self.kiloLoginParts(loginMethod: loginMethodText)
             if let pass = kiloLogin.pass {
-                entries.append(.text("Plan: \(AccountFormatter.plan(pass))", .secondary))
+                entries.append(.text("Plan: \(AccountFormatter.plan(pass, provider: provider))", .secondary))
             }
             for detail in kiloLogin.details {
                 entries.append(.text("Activity: \(detail)", .secondary))
             }
         } else if let loginMethodText, !loginMethodText.isEmpty {
-            entries.append(.text("Plan: \(AccountFormatter.plan(loginMethodText))", .secondary))
+            if provider == .openrouter || provider == .mimo,
+               loginMethodText.localizedCaseInsensitiveContains("balance:")
+            {
+                let balanceValue = loginMethodText
+                    .replacingOccurrences(
+                        of: #"(?i)^\s*balance:\s*"#,
+                        with: "",
+                        options: [.regularExpression])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let value = balanceValue.isEmpty ? loginMethodText : balanceValue
+                entries.append(.text("Balance: \(AccountFormatter.plan(value, provider: provider))", .secondary))
+            } else {
+                entries.append(.text("Plan: \(AccountFormatter.plan(loginMethodText, provider: provider))", .secondary))
+            }
         }
 
         if metadata.usesAccountFallback {
@@ -307,7 +325,7 @@ struct MenuDescriptor {
                 entries.append(.text("Account: \(redacted)", .secondary))
             }
             if loginMethodText?.isEmpty ?? true, let fallbackPlan = fallback.plan, !fallbackPlan.isEmpty {
-                entries.append(.text("Plan: \(AccountFormatter.plan(fallbackPlan))", .secondary))
+                entries.append(.text("Plan: \(AccountFormatter.plan(fallbackPlan, provider: provider))", .secondary))
             }
         }
 
@@ -509,8 +527,12 @@ struct MenuDescriptor {
 }
 
 private enum AccountFormatter {
-    static func plan(_ text: String) -> String {
-        let cleaned = CodexPlanFormatting.displayName(text) ?? UsageFormatter.cleanPlanName(text)
+    static func plan(_ text: String, provider: UsageProvider) -> String {
+        let cleaned = if provider == .codex {
+            CodexPlanFormatting.displayName(text) ?? UsageFormatter.cleanPlanName(text)
+        } else {
+            UsageFormatter.cleanPlanName(text)
+        }
         return cleaned.isEmpty ? text : cleaned
     }
 
