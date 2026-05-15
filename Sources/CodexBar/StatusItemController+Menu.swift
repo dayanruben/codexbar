@@ -7,7 +7,7 @@ import SwiftUI
 // MARK: - NSMenu construction
 
 extension StatusItemController {
-    private static let menuCardBaseWidth: CGFloat = 310
+    static let menuCardBaseWidth: CGFloat = 310
     private static let maxOverviewProviders = SettingsStore.mergedOverviewProviderLimit
     private static let overviewRowIdentifierPrefix = "overviewRow-"
     private static let defaultMenuOpenRefreshDelay: Duration = .seconds(1.2)
@@ -33,6 +33,7 @@ extension StatusItemController {
     static let usageBreakdownChartID = "usageBreakdownChart"
     static let creditsHistoryChartID = "creditsHistoryChart"
     static let costHistoryChartID = "costHistoryChart"
+    static let openAIAPIUsageChartID = "openAIAPIUsageChart"
     static let usageHistoryChartID = "usageHistoryChart"
     static let storageBreakdownID = "storageBreakdown"
 
@@ -63,11 +64,6 @@ extension StatusItemController {
         measuringMenu.autoenablesItems = false
         self.addActionableSections(sections, to: measuringMenu, width: baseWidth)
         return ceil(measuringMenu.size.width)
-    }
-
-    func renderedMenuWidth(for menu: NSMenu) -> CGFloat {
-        let measuredWidth = ceil(menu.size.width)
-        return max(measuredWidth, Self.menuCardBaseWidth)
     }
 
     func makeMenu() -> NSMenu {
@@ -162,7 +158,7 @@ extension StatusItemController {
         }
     }
 
-    private func populateMenu(_ menu: NSMenu, provider: UsageProvider?) {
+    func populateMenu(_ menu: NSMenu, provider: UsageProvider?) {
         let enabledProviders = self.store.enabledProvidersForDisplay()
         let includesOverview = self.includesOverviewTab(enabledProviders: enabledProviders)
         let switcherSelection = self.shouldMergeIcons && enabledProviders.count > 1
@@ -590,7 +586,9 @@ extension StatusItemController {
         }
 
         guard let model = self.menuCardModel(for: context.selectedProvider) else { return false }
-        if context.openAIContext.hasOpenAIWebMenuItems {
+        if context.openAIContext.hasOpenAIWebMenuItems || self
+            .hasOpenAIAPIUsageSubmenu(provider: context.currentProvider)
+        {
             let webItems = OpenAIWebMenuItems(
                 hasUsageBreakdown: context.openAIContext.hasUsageBreakdown,
                 hasCreditsHistory: context.openAIContext.hasCreditsHistory,
@@ -1060,54 +1058,17 @@ extension StatusItemController {
         return .provider(self.resolvedMenuProvider(enabledProviders: enabledProviders) ?? .codex)
     }
 
-    private func menuNeedsRefresh(_ menu: NSMenu) -> Bool {
+    func menuNeedsRefresh(_ menu: NSMenu) -> Bool {
         let key = ObjectIdentifier(menu)
         return self.menuVersions[key] != self.menuContentVersion
     }
 
-    private func markMenuFresh(_ menu: NSMenu) {
+    func markMenuFresh(_ menu: NSMenu) {
         let key = ObjectIdentifier(menu)
         self.menuVersions[key] = self.menuContentVersion
     }
 
-    func refreshOpenMenusIfNeeded() {
-        guard Self.menuRefreshEnabled else { return }
-        guard !self.openMenus.isEmpty else { return }
-        var orphanedKeys: [ObjectIdentifier] = []
-        let hasOpenHostedSubviewMenu = self.hasOpenHostedSubviewMenu()
-        for (key, menu) in self.openMenus {
-            guard key == ObjectIdentifier(menu) else {
-                orphanedKeys.append(key)
-                continue
-            }
-
-            if self.isHostedSubviewMenu(menu) {
-                self.refreshHostedSubviewHeights(in: menu)
-                continue
-            }
-
-            if hasOpenHostedSubviewMenu {
-                continue
-            }
-
-            if self.menuNeedsRefresh(menu) {
-                let provider = self.menuProvider(for: menu)
-                self.populateMenu(menu, provider: provider)
-                self.markMenuFresh(menu)
-                // Heights are already set during populateMenu, no need to remeasure
-            }
-        }
-
-        // Clean up orphaned menu entries from all tracking dictionaries.
-        for key in orphanedKeys {
-            self.openMenus.removeValue(forKey: key)
-            self.menuRefreshTasks.removeValue(forKey: key)?.cancel()
-            self.menuProviders.removeValue(forKey: key)
-            self.menuVersions.removeValue(forKey: key)
-        }
-    }
-
-    private func menuProvider(for menu: NSMenu) -> UsageProvider? {
+    func menuProvider(for menu: NSMenu) -> UsageProvider? {
         if self.shouldMergeIcons {
             return self.resolvedMenuProvider()
         }
@@ -1120,7 +1081,7 @@ extension StatusItemController {
         return self.store.enabledProvidersForDisplay().first ?? .codex
     }
 
-    private func hasOpenHostedSubviewMenu() -> Bool {
+    func hasOpenHostedSubviewMenu() -> Bool {
         self.openMenus.values.contains { self.isHostedSubviewMenu($0) }
     }
 
@@ -1298,7 +1259,7 @@ extension StatusItemController {
         width: CGFloat,
         webItems: OpenAIWebMenuItems)
     {
-        let hasUsageBlock = !model.metrics.isEmpty || model.placeholder != nil
+        let hasUsageBlock = model.hasUsageContent
         let hasCredits = model.creditsText != nil
         let hasExtraUsage = model.providerCost != nil
         let hasCost = model.tokenUsage != nil
@@ -1323,7 +1284,8 @@ extension StatusItemController {
             let usageSubmenu = self.makeUsageSubmenu(
                 provider: provider,
                 snapshot: self.store.snapshot(for: provider),
-                webItems: webItems)
+                webItems: webItems,
+                width: width)
             menu.addItem(self.makeMenuCardItem(
                 usageView,
                 id: "menuCardUsage",
@@ -1351,7 +1313,7 @@ extension StatusItemController {
                 topPadding: sectionSpacing,
                 bottomPadding: creditsBottomPadding,
                 width: width)
-            let creditsSubmenu = webItems.hasCreditsHistory ? self.makeCreditsHistorySubmenu() : nil
+            let creditsSubmenu = webItems.hasCreditsHistory ? self.makeCreditsHistorySubmenu(width: width) : nil
             menu.addItem(self.makeMenuCardItem(
                 creditsView,
                 id: "menuCardCredits",
@@ -1365,6 +1327,7 @@ extension StatusItemController {
             if hasCredits {
                 menu.addItem(.separator())
             }
+            let extraUsageSubmenu = self.makeOpenAIAPIUsageSubmenu(provider: provider, width: width)
             let extraUsageView = UsageMenuCardExtraUsageSectionView(
                 model: model,
                 topPadding: sectionSpacing,
@@ -1373,23 +1336,16 @@ extension StatusItemController {
             menu.addItem(self.makeMenuCardItem(
                 extraUsageView,
                 id: "menuCardExtraUsage",
-                width: width))
+                width: width,
+                submenu: extraUsageSubmenu))
         }
         if hasCost {
             if hasCredits || hasExtraUsage {
                 menu.addItem(.separator())
             }
-            let costView = UsageMenuCardCostSectionView(
-                model: model,
-                topPadding: sectionSpacing,
-                bottomPadding: bottomPadding,
-                width: width)
-            let costSubmenu = webItems.hasCostHistory ? self.makeCostHistorySubmenu(provider: provider) : nil
-            menu.addItem(self.makeMenuCardItem(
-                costView,
-                id: "menuCardCost",
-                width: width,
-                submenu: costSubmenu))
+            let costSubmenu = webItems.hasCostHistory ? self
+                .makeCostHistorySubmenu(provider: provider, width: width) : nil
+            menu.addItem(self.makeCostMenuCardItem(model: model, submenu: costSubmenu))
         }
     }
 
@@ -1401,7 +1357,7 @@ extension StatusItemController {
             topPadding: 6,
             bottomPadding: 6,
             width: width)
-        let storageSubmenu = self.makeStorageBreakdownSubmenu(provider: provider)
+        let storageSubmenu = self.makeStorageBreakdownSubmenu(provider: provider, width: width)
         menu.addItem(self.makeMenuCardItem(
             storageView,
             id: "menuCardStorage",
@@ -1483,7 +1439,8 @@ extension StatusItemController {
 
     @discardableResult
     private func addCreditsHistorySubmenu(to menu: NSMenu) -> Bool {
-        guard let submenu = self.makeCreditsHistorySubmenu() else { return false }
+        guard let submenu = self.makeCreditsHistorySubmenu(width: self.renderedMenuWidth(for: menu))
+        else { return false }
         let item = NSMenuItem(title: "Credits history", action: nil, keyEquivalent: "")
         item.isEnabled = true
         item.submenu = submenu
@@ -1493,7 +1450,8 @@ extension StatusItemController {
 
     @discardableResult
     private func addUsageBreakdownSubmenu(to menu: NSMenu) -> Bool {
-        guard let submenu = self.makeUsageBreakdownSubmenu() else { return false }
+        guard let submenu = self.makeUsageBreakdownSubmenu(width: self.renderedMenuWidth(for: menu))
+        else { return false }
         let item = NSMenuItem(title: "Usage breakdown", action: nil, keyEquivalent: "")
         item.isEnabled = true
         item.submenu = submenu
@@ -1503,7 +1461,8 @@ extension StatusItemController {
 
     @discardableResult
     private func addCostHistorySubmenu(to menu: NSMenu, provider: UsageProvider) -> Bool {
-        guard let submenu = self.makeCostHistorySubmenu(provider: provider) else { return false }
+        guard let submenu = self.makeCostHistorySubmenu(provider: provider, width: self.renderedMenuWidth(for: menu))
+        else { return false }
         let item = NSMenuItem(title: "Usage history (30 days)", action: nil, keyEquivalent: "")
         item.isEnabled = true
         item.submenu = submenu
@@ -1514,10 +1473,14 @@ extension StatusItemController {
     private func makeUsageSubmenu(
         provider: UsageProvider,
         snapshot: UsageSnapshot?,
-        webItems: OpenAIWebMenuItems) -> NSMenu?
+        webItems: OpenAIWebMenuItems,
+        width: CGFloat? = nil) -> NSMenu?
     {
         if webItems.hasUsageBreakdown {
-            return self.makeUsageBreakdownSubmenu()
+            return self.makeUsageBreakdownSubmenu(width: width)
+        }
+        if provider == .openai {
+            return self.makeOpenAIAPIUsageSubmenu(provider: provider, width: width)
         }
         if provider == .zai {
             return self.makeZaiUsageDetailsSubmenu(snapshot: snapshot)
@@ -1564,26 +1527,59 @@ extension StatusItemController {
         return submenu
     }
 
-    private func makeUsageBreakdownSubmenu() -> NSMenu? {
+    private func makeUsageBreakdownSubmenu(width: CGFloat? = nil) -> NSMenu? {
         let breakdown = OpenAIDashboardDailyBreakdown.removingSkillUsageServices(
             from: self.store.openAIDashboard?.usageBreakdown ?? [])
         guard !breakdown.isEmpty else { return nil }
+        if let width {
+            return self.makeHostedSubviewPlaceholderMenu(chartID: Self.usageBreakdownChartID, width: width)
+        }
         return self.makeHostedSubviewPlaceholderMenu(chartID: Self.usageBreakdownChartID)
     }
 
-    private func makeCreditsHistorySubmenu() -> NSMenu? {
+    private func makeCreditsHistorySubmenu(width: CGFloat? = nil) -> NSMenu? {
         guard !(self.store.openAIDashboard?.dailyBreakdown ?? []).isEmpty else { return nil }
+        if let width {
+            return self.makeHostedSubviewPlaceholderMenu(chartID: Self.creditsHistoryChartID, width: width)
+        }
         return self.makeHostedSubviewPlaceholderMenu(chartID: Self.creditsHistoryChartID)
     }
 
-    private func makeCostHistorySubmenu(provider: UsageProvider) -> NSMenu? {
+    private func makeCostHistorySubmenu(provider: UsageProvider, width: CGFloat? = nil) -> NSMenu? {
         guard [.codex, .claude, .vertexai, .bedrock].contains(provider) else { return nil }
         guard self.store.tokenSnapshot(for: provider)?.daily.isEmpty == false else { return nil }
+        if let width {
+            return self.makeHostedSubviewPlaceholderMenu(
+                chartID: Self.costHistoryChartID,
+                provider: provider,
+                width: width)
+        }
         return self.makeHostedSubviewPlaceholderMenu(chartID: Self.costHistoryChartID, provider: provider)
     }
 
-    private func makeStorageBreakdownSubmenu(provider: UsageProvider) -> NSMenu? {
+    private func makeOpenAIAPIUsageSubmenu(provider: UsageProvider, width: CGFloat? = nil) -> NSMenu? {
+        guard self.hasOpenAIAPIUsageSubmenu(provider: provider) else { return nil }
+        if let width {
+            return self.makeHostedSubviewPlaceholderMenu(
+                chartID: Self.openAIAPIUsageChartID,
+                provider: provider,
+                width: width)
+        }
+        return self.makeHostedSubviewPlaceholderMenu(chartID: Self.openAIAPIUsageChartID, provider: provider)
+    }
+
+    private func hasOpenAIAPIUsageSubmenu(provider: UsageProvider) -> Bool {
+        provider == .openai && self.store.snapshot(for: provider)?.openAIAPIUsage?.daily.isEmpty == false
+    }
+
+    private func makeStorageBreakdownSubmenu(provider: UsageProvider, width: CGFloat? = nil) -> NSMenu? {
         guard self.store.storageFootprint(for: provider)?.components.isEmpty == false else { return nil }
+        if let width {
+            return self.makeHostedSubviewPlaceholderMenu(
+                chartID: Self.storageBreakdownID,
+                provider: provider,
+                width: width)
+        }
         return self.makeHostedSubviewPlaceholderMenu(chartID: Self.storageBreakdownID, provider: provider)
     }
 
@@ -1598,7 +1594,7 @@ extension StatusItemController {
         }
     }
 
-    private func refreshHostedSubviewHeights(in menu: NSMenu) {
+    func refreshHostedSubviewHeights(in menu: NSMenu) {
         let width = self.renderedMenuWidth(for: menu)
 
         for item in menu.items {
