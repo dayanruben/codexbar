@@ -464,7 +464,7 @@
 "remove_codex_account_title" = "移除 Codex 账户？";
 "remove" = "移除";
 "managed_login_already_running" = "托管 Codex 登录已在运行。请等待完成后再添加或重新认证其他账户。";
-"managed_login_failed" = "托管 Codex 登录未完成。请在完成浏览器登录流程后重试。";
+"managed_login_failed" = "托管 Codex 登录未完成。请先在终端确认 `codex --version` 可以运行。如果 macOS 阻止了 `codex` 或将它移到废纸篓，请移除旧的重复安装，运行 `npm install -g --include=optional @openai/codex@latest`，然后重试。";
 "managed_login_missing_email" = "Codex 登录已完成，但无法获取账户邮箱。请在确认账户已完全登录后重试。";
 "workspace_selection_cancelled" = "CodexBar 发现多个工作区，但未选择任何工作区。";
 "unsafe_managed_home" = "CodexBar 拒绝修改意外的托管主目录路径：%@";
@@ -529,6 +529,8 @@
 "weekly_limit_confetti_subtitle" = "当每周用量重置时播放全屏彩纸。";
 "hide_personal_info_title" = "隐藏个人信息";
 "hide_personal_info_subtitle" = "在菜单栏和菜单界面中隐藏电子邮件地址。";
+"show_provider_storage_usage_title" = "显示提供商存储用量";
+"show_provider_storage_usage_subtitle" = "在菜单中显示本地磁盘用量。会在后台扫描已知的提供商自有路径。";
 "section_keychain_access" = "钥匙串访问";
 "keychain_access_caption" = "禁用所有钥匙串读写。浏览器 cookie 导入不可用；在提供商中手动粘贴 Cookie 标头。";
 "disable_keychain_access_title" = "禁用钥匙串访问";

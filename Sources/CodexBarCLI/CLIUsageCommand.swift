@@ -164,9 +164,7 @@ extension CodexBarCLI {
                 print(sections.joined(separator: "\n\n"))
             }
         case .json:
-            if !payload.isEmpty {
-                Self.printJSON(payload, pretty: output.pretty)
-            }
+            Self.printJSON(payload, pretty: output.pretty)
         }
 
         Self.exit(code: exitCode, output: output, kind: exitCode == .success ? .runtime : .provider)
@@ -432,7 +430,10 @@ extension CodexBarCLI {
     }
 
     static func sourceModeRequiresWebSupport(_ sourceMode: ProviderSourceMode, provider: UsageProvider) -> Bool {
-        switch sourceMode {
+        guard provider != .grok else {
+            return false
+        }
+        return switch sourceMode {
         case .web:
             true
         case .auto:

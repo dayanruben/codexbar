@@ -457,7 +457,7 @@
 "remove_codex_account_title" = "Remove Codex account?";
 "remove" = "Remove";
 "managed_login_already_running" = "A managed Codex login is already running. Wait for it to finish before adding or re-authenticating another account.";
-"managed_login_failed" = "Managed Codex login did not complete. Try again after finishing the browser login flow.";
+"managed_login_failed" = "Managed Codex login did not complete. Verify that `codex --version` works in Terminal. If macOS blocked or moved `codex` to Trash, remove stale duplicate installs, run `npm install -g --include=optional @openai/codex@latest`, then try again.";
 "managed_login_missing_email" = "Codex login completed, but no account email was available. Try again after confirming the account is fully signed in.";
 "workspace_selection_cancelled" = "CodexBar found multiple workspaces, but no workspace was selected.";
 "unsafe_managed_home" = "CodexBar refused to modify an unexpected managed home path: %@";
@@ -522,6 +522,8 @@
 "weekly_limit_confetti_subtitle" = "Play full-screen confetti when weekly usage resets.";
 "hide_personal_info_title" = "Hide personal information";
 "hide_personal_info_subtitle" = "Obscure email addresses in the menu bar and menu UI.";
+"show_provider_storage_usage_title" = "Show provider storage usage";
+"show_provider_storage_usage_subtitle" = "Show local disk usage in menus. Scans known provider-owned paths in the background.";
 "section_keychain_access" = "Keychain access";
 "keychain_access_caption" = "Disable all Keychain reads and writes. Browser cookie import is unavailable; paste Cookie headers manually in Providers.";
 "disable_keychain_access_title" = "Disable Keychain access";

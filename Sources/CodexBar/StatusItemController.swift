@@ -150,11 +150,21 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     /// Monotonic token used to ignore stale deferred provider-switcher menu rebuilds.
     var providerSwitcherUpdateToken = 0
     var lastAppliedMergedIconRenderSignature: String?
+    var lastKnownScreenCount: Int
+    var pendingScreenChangePreviousCount: Int?
+    var screenChangeVisibilityTask: Task<Void, Never>?
     let loginLogger = CodexBarLog.logger(LogCategories.login)
     let menuLogger = CodexBarLog.logger(LogCategories.app)
     var selectedMenuProvider: UsageProvider? {
         get { self.settings.selectedMenuProvider }
         set { self.settings.selectedMenuProvider = newValue }
+    }
+
+    private static func makeStatusItem(statusBar: NSStatusBar) -> NSStatusItem {
+        let item = statusBar.statusItem(withLength: NSStatusItem.variableLength)
+        // Ensure the icon is rendered at 1:1 without resampling (crisper edges for template images).
+        item.button?.imageScaling = .scaleNone
+        return item
     }
 
     struct BlinkState {
@@ -261,16 +271,14 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         self.lastObservedUsageBarsShowUsed = settings.usageBarsShowUsed
         self.lastSwitcherUsageBarsShowUsed = settings.usageBarsShowUsed
         self.statusBar = statusBar
-        let item = statusBar.statusItem(withLength: NSStatusItem.variableLength)
-        // Ensure the icon is rendered at 1:1 without resampling (crisper edges for template images).
-        item.button?.imageScaling = .scaleNone
-        self.statusItem = item
+        self.statusItem = Self.makeStatusItem(statusBar: statusBar)
+        self.lastKnownScreenCount = NSScreen.screens.count
         // Status items for individual providers are now created lazily in updateVisibility()
         super.init()
         self.wireBindings()
         self.updateVisibility()
         self.updateIcons()
-        self.scheduleTahoeAllowListVisibilityCheck()
+        self.scheduleStartupStatusItemVisibilityCheck()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(self.handleDebugReplayNotification(_:)),
@@ -293,6 +301,11 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
                 name: .codexbarProviderConfigDidChange,
                 object: nil)
         }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.handleScreenParametersDidChange(_:)),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil)
     }
 
     convenience init(
@@ -563,10 +576,24 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         if let existing = self.statusItems[provider] {
             return existing
         }
-        let item = self.statusBar.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.imageScaling = .scaleNone
+        let item = Self.makeStatusItem(statusBar: self.statusBar)
         self.statusItems[provider] = item
         return item
+    }
+
+    func recreateStatusItemsForVisibilityRecovery() {
+        #if DEBUG
+        guard !self.isReleasedForTesting else { return }
+        #endif
+        self.statusItem.menu = nil
+        self.statusBar.removeStatusItem(self.statusItem)
+        self.statusItem = Self.makeStatusItem(statusBar: self.statusBar)
+        for provider in Array(self.statusItems.keys) {
+            self.removeProviderStatusItem(for: provider)
+        }
+        self.lastAppliedMergedIconRenderSignature = nil
+        self.updateVisibility()
+        self.updateIcons()
     }
 
     private func updateVisibility() {
@@ -585,7 +612,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         } else {
             self.statusItem.isVisible = false
             let fallback = self.fallbackProvider
-            for provider in UsageProvider.allCases {
+            for provider in self.settings.orderedProviders() {
                 let isEnabled = self.isEnabled(provider)
                 let shouldBeVisible = isEnabled || fallback == provider || force
                 if shouldBeVisible {
@@ -721,6 +748,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         self.isReleasedForTesting = true
         self.blinkTask?.cancel()
         self.loginTask?.cancel()
+        self.screenChangeVisibilityTask?.cancel()
+        self.pendingScreenChangePreviousCount = nil
         self.animationDriver?.stop()
         self.animationDriver = nil
         self.animationPhase = 0
@@ -759,6 +788,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         }
         self.blinkTask?.cancel()
         self.loginTask?.cancel()
+        self.screenChangeVisibilityTask?.cancel()
+        self.pendingScreenChangePreviousCount = nil
         NotificationCenter.default.removeObserver(self)
     }
 }

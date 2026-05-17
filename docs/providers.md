@@ -33,13 +33,14 @@ headers, source selection, provider ordering, and token accounts are stored in `
 | Kimi | Auth token from `kimi-auth` cookie/manual token/env → usage API (`web`). |
 | Kilo | API token from config/env → usage API (`api`); auto falls back to CLI session auth (`cli`). |
 | Copilot | Device-flow/env/config token → `copilot_internal` API (`api`). |
-| Kimi K2 | API key from config/env → credit endpoint (`api`). |
+| Kimi K2 (unofficial) | API key from config/env → legacy credit endpoint (`api`). |
 | Kiro | CLI command via `kiro-cli chat --no-interactive "/usage"` (`cli`). |
 | Vertex AI | Google ADC OAuth (gcloud) → Cloud Monitoring quota usage (`oauth`). |
 | Augment | `auggie` CLI first, then browser-cookie web fallback (`cli`, `web`). |
 | JetBrains AI | Local XML quota file (`local`). |
 | Amp | Web settings page via browser cookies (`web`). |
 | Warp | API token (config/env) → GraphQL request limits (`api`). |
+| ElevenLabs | API key from config/env → subscription usage API (`api`). |
 | Ollama | Web settings page via browser cookies (`web`). |
 | Synthetic | API key from config/env → quota API (`api`). |
 | OpenRouter | API token (config, overrides env) → credits API (`api`). |
@@ -54,6 +55,7 @@ headers, source selection, provider ordering, and token accounts are stored in `
 | Crof | API key from config/env → credit balance + requests quota API (`api`). |
 | Venice | API key from config/env → DIEM/USD balance API (`api`). |
 | Command Code | Web billing API via Command Code session cookies (`web`). |
+| Grok | `grok agent stdio` JSON-RPC `x.ai/billing` (`cli`) → grok.com billing gRPC-web via Chrome session cookies (`web`); local `~/.grok/sessions` signals as fallback. |
 
 ## Codex
 - App Auto: OAuth API first; falls back to CLI only when OAuth credentials are missing or auth/refresh is invalid.
@@ -103,9 +105,10 @@ headers, source selection, provider ordering, and token accounts are stored in `
 - Status: none yet.
 - Details: `docs/kilo.md`.
 
-## Kimi K2
+## Kimi K2 (unofficial)
 - API key via `~/.codexbar/config.json` or `KIMI_K2_API_KEY`/`KIMI_API_KEY` env var.
-- Shows credit usage based on consumed/remaining totals.
+- Shows credit usage from the legacy `kimi-k2.ai` consumed/remaining totals.
+- Use Moonshot / Kimi API for the official Kimi API account and billing surface.
 - Status: none yet.
 - Details: `docs/kimi-k2.md`.
 
@@ -173,6 +176,14 @@ headers, source selection, provider ordering, and token accounts are stored in `
 - Shows monthly credits usage and next refresh time.
 - Status: none yet.
 - Details: `docs/warp.md`.
+
+## ElevenLabs
+- API key from Settings, token accounts, `ELEVENLABS_API_KEY`, or `XI_API_KEY`.
+- Reads `GET /v1/user/subscription` from `api.elevenlabs.io`.
+- Shows character credit usage, reset timing, and voice slot usage when available.
+- Override the API base URL with `ELEVENLABS_API_URL`.
+- Status: `https://status.elevenlabs.io` (link only, no auto-polling).
+- Details: `docs/elevenlabs.md`.
 
 ## Vertex AI
 - OAuth credentials from `gcloud auth application-default login` (ADC).
@@ -294,6 +305,15 @@ headers, source selection, provider ordering, and token accounts are stored in `
 - Automatic import looks for better-auth session cookies from `commandcode.ai` / `www.commandcode.ai`.
 - Status: none yet.
 - Details: `docs/command-code.md`.
+
+## Grok
+- `grok agent stdio` (ACP) JSON-RPC `x.ai/billing` method; requires `grok login` (SuperGrok OAuth/OIDC).
+- Reads cached credentials from `~/.grok/auth.json` for identity (email, team).
+- Falls back to grok.com's billing gRPC-web endpoint via Chrome session cookies when the CLI does not expose billing.
+- CLI/test runs do not import browser cookies unless `CODEXBAR_ALLOW_BROWSER_COOKIE_IMPORT=1` is set.
+- Local fallback aggregates `~/.grok/sessions/**/signals.json` token counts when the RPC is unavailable.
+- Status: link only to `https://status.x.ai` (no auto-polling yet).
+- Details: `docs/grok.md`.
 
 ## StepFun
 - Username/password login or manual Oasis-Token.
