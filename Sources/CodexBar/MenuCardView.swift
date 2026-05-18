@@ -773,7 +773,8 @@ extension UsageMenuCardView.Model {
         let isClaudeAdminAPI = input.provider == .claude &&
             input.snapshot?.identity?.loginMethod == "Admin API"
         let hidesOptionalProviderCost = ((input.provider == .claude && !isClaudeAdminAPI) ||
-            input.provider == .factory) &&
+            input.provider == .factory ||
+            input.provider == .opencodego) &&
             !input.showOptionalCreditsAndExtraUsage
         let providerCost: ProviderCostSection? = if hidesOptionalProviderCost ||
             (input.provider == .openai && openAIAPIUsage != nil)
@@ -847,10 +848,8 @@ extension UsageMenuCardView.Model {
             ]
         }
 
-        if input.provider == .openai,
-           let usage = input.snapshot?.openAIAPIUsage
-        {
-            return self.openAIAPIUsageNotes(usage)
+        if let notes = apiProviderUsageNotes(input: input) {
+            return notes
         }
 
         guard input.provider == .openrouter,

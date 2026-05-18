@@ -8,9 +8,19 @@ public struct MiniMaxUsageFetcher: Sendable {
     private static let codingPlanPath = "user-center/payment/coding-plan"
     private static let codingPlanQuery = "cycle_type=3"
     private static let codingPlanRemainsPath = "v1/api/openplatform/coding_plan/remains"
+    private static let billingHistoryPath = "account/amount"
+    private static let billingHistoryLimit = 100
     private struct RemainsContext {
         let authorizationToken: String?
         let groupID: String?
+    }
+
+    private struct WebFetchContext {
+        let cookie: String
+        let authorizationToken: String?
+        let region: MiniMaxAPIRegion
+        let environment: [String: String]
+        let transport: any ProviderHTTPTransport
     }
 
     public static func fetchUsage(
@@ -19,29 +29,40 @@ public struct MiniMaxUsageFetcher: Sendable {
         groupID: String? = nil,
         region: MiniMaxAPIRegion = .global,
         environment: [String: String] = ProcessInfo.processInfo.environment,
+        includeBillingHistory: Bool = true,
+        session transport: any ProviderHTTPTransport = ProviderHTTPClient.shared,
         now: Date = Date()) async throws -> MiniMaxUsageSnapshot
     {
         guard let cookie = MiniMaxCookieHeader.normalized(from: cookieHeader) else {
             throw MiniMaxUsageError.invalidCredentials
         }
 
+        let context = WebFetchContext(
+            cookie: cookie,
+            authorizationToken: authorizationToken,
+            region: region,
+            environment: environment,
+            transport: transport)
         do {
-            return try await self.fetchCodingPlanHTML(
-                cookie: cookie,
-                authorizationToken: authorizationToken,
-                region: region,
-                environment: environment,
+            let snapshot = try await self.fetchCodingPlanHTML(context: context, now: now)
+            return try await self.attachingBillingIfAvailable(
+                to: snapshot,
+                context: context,
+                includeBillingHistory: includeBillingHistory,
                 now: now)
         } catch let error as MiniMaxUsageError {
             if case .parseFailed = error {
                 Self.log.debug("MiniMax coding plan HTML parse failed, trying remains API")
-                return try await self.fetchCodingPlanRemains(
-                    cookie: cookie,
+                let snapshot = try await self.fetchCodingPlanRemains(
+                    context: context,
                     remainsContext: RemainsContext(
                         authorizationToken: authorizationToken,
                         groupID: groupID),
-                    region: region,
-                    environment: environment,
+                    now: now)
+                return try await self.attachingBillingIfAvailable(
+                    to: snapshot,
+                    context: context,
+                    includeBillingHistory: includeBillingHistory,
                     now: now)
             }
             throw error
@@ -52,7 +73,7 @@ public struct MiniMaxUsageFetcher: Sendable {
         apiToken: String,
         region: MiniMaxAPIRegion = .global,
         now: Date = Date(),
-        session: URLSession = .shared) async throws -> MiniMaxUsageSnapshot
+        session transport: any ProviderHTTPTransport = ProviderHTTPClient.shared) async throws -> MiniMaxUsageSnapshot
     {
         let cleaned = apiToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else {
@@ -63,11 +84,11 @@ public struct MiniMaxUsageFetcher: Sendable {
         // user has no persisted region and we default to `.global`, retry the China endpoint when the global host
         // rejects the token so upgrades don't regress existing setups.
         if region != .global {
-            return try await self.fetchUsageOnce(apiToken: cleaned, region: region, now: now, session: session)
+            return try await self.fetchUsageOnce(apiToken: cleaned, region: region, now: now, transport: transport)
         }
 
         do {
-            return try await self.fetchUsageOnce(apiToken: cleaned, region: .global, now: now, session: session)
+            return try await self.fetchUsageOnce(apiToken: cleaned, region: .global, now: now, transport: transport)
         } catch let error as MiniMaxUsageError {
             guard case .invalidCredentials = error else { throw error }
             Self.log.debug("MiniMax API token rejected for global host, retrying China mainland host")
@@ -76,7 +97,7 @@ public struct MiniMaxUsageFetcher: Sendable {
                     apiToken: cleaned,
                     region: .chinaMainland,
                     now: now,
-                    session: session)
+                    transport: transport)
             } catch {
                 // Preserve the original invalid-credentials error so the fetch pipeline can fall back to web.
                 Self.log.debug("MiniMax China mainland retry failed, preserving global invalidCredentials")
@@ -89,7 +110,7 @@ public struct MiniMaxUsageFetcher: Sendable {
         apiToken: String,
         region: MiniMaxAPIRegion,
         now: Date,
-        session: URLSession) async throws -> MiniMaxUsageSnapshot
+        transport: any ProviderHTTPTransport) async throws -> MiniMaxUsageSnapshot
     {
         var request = URLRequest(url: region.apiRemainsURL)
         request.httpMethod = "GET"
@@ -98,21 +119,25 @@ public struct MiniMaxUsageFetcher: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("CodexBar", forHTTPHeaderField: "MM-API-Source")
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
+        let response: ProviderHTTPResponse
+        do {
+            response = try await transport.response(for: request)
+        } catch let error as URLError where error.code == .badServerResponse {
             throw MiniMaxUsageError.networkError("Invalid response")
+        } catch {
+            throw error
         }
 
-        guard httpResponse.statusCode == 200 else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            Self.log.error("MiniMax returned \(httpResponse.statusCode): \(body)")
-            if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+        guard response.statusCode == 200 else {
+            let body = String(data: response.data, encoding: .utf8) ?? ""
+            Self.log.error("MiniMax returned \(response.statusCode): \(body)")
+            if response.statusCode == 401 || response.statusCode == 403 {
                 throw MiniMaxUsageError.invalidCredentials
             }
-            throw MiniMaxUsageError.apiError("HTTP \(httpResponse.statusCode)")
+            throw MiniMaxUsageError.apiError("HTTP \(response.statusCode)")
         }
 
-        let snapshot = try MiniMaxUsageParser.parseCodingPlanRemains(data: data, now: now)
+        let snapshot = try MiniMaxUsageParser.parseCodingPlanRemains(data: response.data, now: now)
         if let services = snapshot.services, !services.isEmpty {
             Self.log.debug("MiniMax multi-service response detected: \(services.count) services")
         }
@@ -120,17 +145,14 @@ public struct MiniMaxUsageFetcher: Sendable {
     }
 
     private static func fetchCodingPlanHTML(
-        cookie: String,
-        authorizationToken: String?,
-        region: MiniMaxAPIRegion,
-        environment: [String: String],
+        context: WebFetchContext,
         now: Date) async throws -> MiniMaxUsageSnapshot
     {
-        let url = self.resolveCodingPlanURL(region: region, environment: environment)
+        let url = self.resolveCodingPlanURL(region: context.region, environment: context.environment)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue(cookie, forHTTPHeaderField: "Cookie")
-        if let authorizationToken {
+        request.setValue(context.cookie, forHTTPHeaderField: "Cookie")
+        if let authorizationToken = context.authorizationToken {
             request.setValue("Bearer \(authorizationToken)", forHTTPHeaderField: "Authorization")
         }
         let acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
@@ -143,34 +165,38 @@ public struct MiniMaxUsageFetcher: Sendable {
         let origin = self.originURL(from: url)
         request.setValue(origin.absoluteString, forHTTPHeaderField: "origin")
         request.setValue(
-            self.resolveCodingPlanRefererURL(region: region, environment: environment).absoluteString,
+            self.resolveCodingPlanRefererURL(region: context.region, environment: context.environment).absoluteString,
             forHTTPHeaderField: "referer")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
+        let response: ProviderHTTPResponse
+        do {
+            response = try await context.transport.response(for: request)
+        } catch let error as URLError where error.code == .badServerResponse {
             throw MiniMaxUsageError.networkError("Invalid response")
+        } catch {
+            throw error
         }
 
-        guard httpResponse.statusCode == 200 else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            Self.log.error("MiniMax returned \(httpResponse.statusCode): \(body)")
-            if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+        guard response.statusCode == 200 else {
+            let body = String(data: response.data, encoding: .utf8) ?? ""
+            Self.log.error("MiniMax returned \(response.statusCode): \(body)")
+            if response.statusCode == 401 || response.statusCode == 403 {
                 throw MiniMaxUsageError.invalidCredentials
             }
-            throw MiniMaxUsageError.apiError("HTTP \(httpResponse.statusCode)")
+            throw MiniMaxUsageError.apiError("HTTP \(response.statusCode)")
         }
 
-        if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"),
+        if let contentType = response.response.value(forHTTPHeaderField: "Content-Type"),
            contentType.lowercased().contains("application/json")
         {
-            let snapshot = try MiniMaxUsageParser.parseCodingPlanRemains(data: data, now: now)
+            let snapshot = try MiniMaxUsageParser.parseCodingPlanRemains(data: response.data, now: now)
             if let services = snapshot.services, !services.isEmpty {
                 Self.log.debug("MiniMax multi-service response detected: \(services.count) services")
             }
             return snapshot
         }
 
-        let html = String(data: data, encoding: .utf8) ?? ""
+        let html = String(data: response.data, encoding: .utf8) ?? ""
         if html.contains("__NEXT_DATA__") {
             Self.log.debug("MiniMax coding plan HTML contains __NEXT_DATA__")
         }
@@ -181,17 +207,15 @@ public struct MiniMaxUsageFetcher: Sendable {
     }
 
     private static func fetchCodingPlanRemains(
-        cookie: String,
+        context: WebFetchContext,
         remainsContext: RemainsContext,
-        region: MiniMaxAPIRegion,
-        environment: [String: String],
         now: Date) async throws -> MiniMaxUsageSnapshot
     {
-        let baseRemainsURL = self.resolveRemainsURL(region: region, environment: environment)
+        let baseRemainsURL = self.resolveRemainsURL(region: context.region, environment: context.environment)
         let remainsURL = self.appendGroupID(remainsContext.groupID, to: baseRemainsURL)
         var request = URLRequest(url: remainsURL)
         request.httpMethod = "GET"
-        request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        request.setValue(context.cookie, forHTTPHeaderField: "Cookie")
         if let authorizationToken = remainsContext.authorizationToken {
             request.setValue("Bearer \(authorizationToken)", forHTTPHeaderField: "Authorization")
         }
@@ -206,38 +230,135 @@ public struct MiniMaxUsageFetcher: Sendable {
         let origin = self.originURL(from: baseRemainsURL)
         request.setValue(origin.absoluteString, forHTTPHeaderField: "origin")
         request.setValue(
-            self.resolveCodingPlanRefererURL(region: region, environment: environment).absoluteString,
+            self.resolveCodingPlanRefererURL(region: context.region, environment: context.environment).absoluteString,
             forHTTPHeaderField: "referer")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
+        let response: ProviderHTTPResponse
+        do {
+            response = try await context.transport.response(for: request)
+        } catch let error as URLError where error.code == .badServerResponse {
             throw MiniMaxUsageError.networkError("Invalid response")
+        } catch {
+            throw error
         }
 
-        guard httpResponse.statusCode == 200 else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            Self.log.error("MiniMax returned \(httpResponse.statusCode): \(body)")
-            if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+        guard response.statusCode == 200 else {
+            let body = String(data: response.data, encoding: .utf8) ?? ""
+            Self.log.error("MiniMax returned \(response.statusCode): \(body)")
+            if response.statusCode == 401 || response.statusCode == 403 {
                 throw MiniMaxUsageError.invalidCredentials
             }
-            throw MiniMaxUsageError.apiError("HTTP \(httpResponse.statusCode)")
+            throw MiniMaxUsageError.apiError("HTTP \(response.statusCode)")
         }
 
-        if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"),
+        if let contentType = response.response.value(forHTTPHeaderField: "Content-Type"),
            contentType.lowercased().contains("application/json")
         {
-            let snapshot = try MiniMaxUsageParser.parseCodingPlanRemains(data: data, now: now)
+            let snapshot = try MiniMaxUsageParser.parseCodingPlanRemains(data: response.data, now: now)
             if let services = snapshot.services, !services.isEmpty {
                 Self.log.debug("MiniMax multi-service response detected: \(services.count) services")
             }
             return snapshot
         }
 
-        let html = String(data: data, encoding: .utf8) ?? ""
+        let html = String(data: response.data, encoding: .utf8) ?? ""
         if self.looksSignedOut(html: html) {
             throw MiniMaxUsageError.invalidCredentials
         }
         return try MiniMaxUsageParser.parse(html: html, now: now)
+    }
+
+    private static func attachingBillingIfAvailable(
+        to snapshot: MiniMaxUsageSnapshot,
+        context: WebFetchContext,
+        includeBillingHistory: Bool,
+        now: Date) async throws -> MiniMaxUsageSnapshot
+    {
+        guard includeBillingHistory else { return snapshot }
+        do {
+            let billing = try await self.fetchBillingSummary(context: context, now: now)
+            return snapshot.withBillingSummary(billing)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw error
+        } catch let error as MiniMaxUsageError {
+            if case .invalidCredentials = error, context.authorizationToken != nil {
+                throw error
+            }
+            Self.log.debug("MiniMax billing history unavailable: \(error.localizedDescription)")
+            return snapshot
+        } catch {
+            Self.log.debug("MiniMax billing history unavailable: \(error.localizedDescription)")
+            return snapshot
+        }
+    }
+
+    private static func fetchBillingSummary(context: WebFetchContext, now: Date) async throws -> MiniMaxBillingSummary {
+        var records: [MiniMaxBillingRecord] = []
+        var totalCount: Int?
+
+        var page = 1
+        while true {
+            let url = self.resolveBillingHistoryURL(
+                region: context.region,
+                environment: context.environment,
+                page: page,
+                limit: Self.billingHistoryLimit)
+            let response = try await self.billingHistoryResponse(url: url, context: context)
+            guard response.statusCode == 200 else {
+                let body = String(data: response.data, encoding: .utf8) ?? ""
+                Self.log.debug("MiniMax billing history returned \(response.statusCode): \(body)")
+                if response.statusCode == 401 || response.statusCode == 403 {
+                    throw MiniMaxUsageError.invalidCredentials
+                }
+                throw MiniMaxUsageError.apiError("HTTP \(response.statusCode)")
+            }
+
+            let payload = try MiniMaxBillingHistoryParser.decodePayload(data: response.data)
+            if let status = payload.baseResp?.statusCode, status != 0 {
+                let message = payload.baseResp?.statusMessage ?? "status_code \(status)"
+                throw MiniMaxUsageError.apiError(message)
+            }
+            totalCount = payload.totalCount ?? totalCount
+            guard !payload.chargeRecords.isEmpty else { break }
+            records.append(contentsOf: payload.chargeRecords)
+            if MiniMaxBillingHistoryParser.containsRecordBefore30DayWindow(payload.chargeRecords, now: now) { break }
+            if let totalCount, records.count >= totalCount { break }
+            page += 1
+        }
+
+        return MiniMaxBillingHistoryParser.aggregate(records: records, now: now)
+    }
+
+    private static func billingHistoryResponse(
+        url: URL,
+        context: WebFetchContext) async throws -> ProviderHTTPResponse
+    {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(context.cookie, forHTTPHeaderField: "Cookie")
+        if let authorizationToken = context.authorizationToken {
+            request.setValue("Bearer \(authorizationToken)", forHTTPHeaderField: "Authorization")
+        }
+        request.setValue("application/json, text/plain, */*", forHTTPHeaderField: "accept")
+        request.setValue("XMLHttpRequest", forHTTPHeaderField: "x-requested-with")
+        let userAgent =
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+        request.setValue(userAgent, forHTTPHeaderField: "user-agent")
+        request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "accept-language")
+        let origin = self.originURL(from: url)
+        request.setValue(origin.absoluteString, forHTTPHeaderField: "origin")
+        request.setValue(origin.appendingPathComponent("account").absoluteString, forHTTPHeaderField: "referer")
+
+        do {
+            return try await context.transport.response(for: request)
+        } catch let error as URLError where error.code == .badServerResponse {
+            throw MiniMaxUsageError.networkError("Invalid response")
+        } catch {
+            throw error
+        }
     }
 
     private static func appendGroupID(_ groupID: String?, to url: URL) -> URL {
@@ -304,6 +425,35 @@ public struct MiniMaxUsageFetcher: Sendable {
             return hostURL
         }
         return region.remainsURL
+    }
+
+    static func resolveBillingHistoryURL(
+        region: MiniMaxAPIRegion,
+        environment: [String: String],
+        page: Int,
+        limit: Int = Self.billingHistoryLimit) -> URL
+    {
+        if let override = MiniMaxSettingsReader.billingHistoryURL(environment: environment) {
+            return self.billingHistoryURL(from: override, page: page, limit: limit)
+        }
+        if let host = MiniMaxSettingsReader.hostOverride(environment: environment),
+           let hostURL = self.url(from: host, path: Self.billingHistoryPath)
+        {
+            return self.billingHistoryURL(from: hostURL, page: page, limit: limit)
+        }
+        return region.billingHistoryURL(page: page, limit: limit)
+    }
+
+    private static func billingHistoryURL(from url: URL, page: Int, limit: Int) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var items = components.queryItems?.filter {
+            $0.name != "page" && $0.name != "limit" && $0.name != "aggregate"
+        } ?? []
+        items.append(URLQueryItem(name: "page", value: "\(page)"))
+        items.append(URLQueryItem(name: "limit", value: "\(limit)"))
+        items.append(URLQueryItem(name: "aggregate", value: "false"))
+        components.queryItems = items
+        return components.url ?? url
     }
 
     static func url(from raw: String, path: String? = nil, query: String? = nil) -> URL? {
@@ -540,6 +690,23 @@ enum MiniMaxDecoding {
         if let value = try? container.decodeIfPresent(String.self, forKey: key) {
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             return Int(trimmed)
+        }
+        return nil
+    }
+
+    static func decodeDouble<K: CodingKey>(_ container: KeyedDecodingContainer<K>, forKey key: K) -> Double? {
+        if let value = try? container.decodeIfPresent(Double.self, forKey: key) {
+            return value
+        }
+        if let value = try? container.decodeIfPresent(Int.self, forKey: key) {
+            return Double(value)
+        }
+        if let value = try? container.decodeIfPresent(Int64.self, forKey: key) {
+            return Double(value)
+        }
+        if let value = try? container.decodeIfPresent(String.self, forKey: key) {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return Double(trimmed)
         }
         return nil
     }
