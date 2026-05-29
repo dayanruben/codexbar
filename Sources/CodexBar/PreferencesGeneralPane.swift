@@ -10,6 +10,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     case chineseSimplified = "zh-Hans"
     case chineseTraditional = "zh-Hant"
     case portugueseBrazilian = "pt-BR"
+    case swedish = "sv"
 
     var id: String {
         self.rawValue
@@ -24,6 +25,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .chineseSimplified: L("language_chinese_simplified")
         case .chineseTraditional: L("language_chinese_traditional")
         case .portugueseBrazilian: L("language_portuguese_brazilian")
+        case .swedish: L("language_swedish")
         }
     }
 }
@@ -131,7 +133,7 @@ struct GeneralPane: View {
                                     .foregroundStyle(.tertiary)
                             }
                             Spacer()
-                            Picker("Refresh cadence", selection: self.$settings.refreshFrequency) {
+                            Picker(L("Refresh cadence"), selection: self.$settings.refreshFrequency) {
                                 ForEach(RefreshFrequency.allCases) { option in
                                     Text(option.label).tag(option)
                                 }
