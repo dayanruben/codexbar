@@ -137,6 +137,9 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var openMenuRebuildTokenCounter = 0
     var openMenuRebuildsClosingHostedSubviewMenus: Set<ObjectIdentifier> = []
     var parentMenuRebuildsDeferredDuringTracking: Set<ObjectIdentifier> = []
+    var deferredMenuInteractionRefreshPending = false
+    var deferredOpenAIDashboardRefreshReason: String?
+    var deferredMenuInteractionRefreshTask: Task<Void, Never>?
     var highlightedMenuItems: [ObjectIdentifier: NSMenuItem] = [:]
     var providerSwitcherShortcutEventMonitor: ProviderSwitcherShortcutEventMonitor?
     var providerSwitcherShortcutMenuID: ObjectIdentifier?
@@ -144,6 +147,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var openMenuInvalidationRetryTask: Task<Void, Never>?
     #if DEBUG
     var onDelayedMenuRefreshAttemptForTesting: (() -> Void)?
+    var onDeferredMenuInteractionRefreshForTesting: (() -> Void)?
     var onOpenMenuInvalidationRetryForTesting: (() -> Void)?
     var isReleasedForTesting = false
     var _test_openMenuRefreshYieldOverride: (@MainActor () async -> Void)?

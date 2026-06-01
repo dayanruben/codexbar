@@ -1,6 +1,22 @@
 # Changelog
 
-## 0.31.1 — Unreleased
+## 0.32.2 — Unreleased
+
+### Added
+- QA: document the live CodexBar e2e flow and add a redacted provider-matrix helper for packaged CLI smoke tests.
+
+### Fixed
+- Menu bar: add breathing room to compact Codex account rows so the provider, account, status, and plan labels no longer hug the row edges.
+
+## 0.32.1 — 2026-05-31
+
+### Fixed
+- Claude: keep Claude CLI-owned OAuth refresh tokens delegated to Claude Code when CLI storage is present, preventing CodexBar from consuming rotating refresh tokens and forcing re-login (#1161, #1239). Thanks @RajvardhanPatil07!
+- Menu bar: reuse short-lived Codex account reconciliation snapshots so repeated menu rebuilds do not reread local auth state on every open.
+- Menu bar: defer automatic provider refreshes until after AppKit menu tracking ends so opening the dropdown no longer starts work that can freeze focus and keyboard input.
+- Menu bar: suppress background keychain and OpenAI dashboard work during startup/menu tracking so the dropdown stays clickable without macOS keychain prompts or WebKit memory spikes.
+
+## 0.32.0 — 2026-05-31
 
 ### Added
 - Settings: add search to the Providers pane so large provider lists can be filtered by name or id (#1184). Thanks @046081-dotcom!

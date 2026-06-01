@@ -73,11 +73,22 @@ extension StatusItemController {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        let menuOpenStartedAt = CACurrentMediaTime()
+        defer {
+            self.logMenuOperationDurationIfSlow(
+                "menuWillOpen",
+                startedAt: menuOpenStartedAt,
+                menu: menu,
+                provider: self.menuProvider(for: menu))
+        }
+
+        self.cancelDeferredMenuInteractionRefreshTask()
+
         if self.isHostedSubviewMenu(menu) {
             self.hydrateHostedSubviewMenuIfNeeded(menu)
             self.refreshHostedSubviewHeights(in: menu)
             if self.isMenuRefreshEnabled, self.isOpenAIWebSubviewMenu(menu) {
-                self.store.requestOpenAIDashboardRefreshIfStale(reason: "submenu open")
+                self.deferOpenAIDashboardRefreshUntilMenuCloses(reason: "submenu open")
             }
             if self.isMenuRefreshEnabled {
                 // Intentionally skip open-menu tracking when refresh is disabled (tests).
@@ -108,7 +119,7 @@ extension StatusItemController {
         }
 
         if self.isMenuRefreshEnabled, (provider ?? self.lastMenuProvider) == .codex {
-            self.store.requestOpenAIDashboardRefreshIfStale(reason: "parent menu open")
+            self.deferOpenAIDashboardRefreshUntilMenuCloses(reason: "parent menu open")
         }
 
         if self.menuNeedsRefresh(menu) {
@@ -160,6 +171,7 @@ extension StatusItemController {
             self.rebuildClosedMenuIfNeeded(menu)
         }
         self.parentMenuRebuildsDeferredDuringTracking.remove(key)
+        self.scheduleDeferredMenuInteractionRefreshIfNeeded()
     }
 
     func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
@@ -180,6 +192,15 @@ extension StatusItemController {
     }
 
     func populateMenu(_ menu: NSMenu, provider: UsageProvider?) {
+        let populateStartedAt = CACurrentMediaTime()
+        defer {
+            self.logMenuOperationDurationIfSlow(
+                "populateMenu",
+                startedAt: populateStartedAt,
+                menu: menu,
+                provider: provider)
+        }
+
         let enabledProviders = self.store.enabledProvidersForDisplay()
         let includesOverview = self.includesOverviewTab(enabledProviders: enabledProviders)
         let switcherSelection = self.shouldMergeIcons && enabledProviders.count > 1
@@ -1090,11 +1111,9 @@ extension StatusItemController {
     }
 
     private func scheduleOpenMenuRefresh(for menu: NSMenu) {
-        // Kick off a refresh on open (non-forced) and re-check after a delay.
-        // NEVER block menu opening with network requests.
-        if !self.store.isRefreshing {
-            self.refreshStore(forceTokenUsage: false, refreshOpenMenusWhenComplete: false)
-        }
+        // Queue refresh work until the menu closes. AppKit menu tracking is modal; starting provider refreshes
+        // while it is active can make the menu feel frozen and can block keyboard focus from returning.
+        self.deferMenuInteractionRefreshIfNeeded()
         let key = ObjectIdentifier(menu)
         self.menuRefreshTasks[key]?.cancel()
         self.menuRefreshTasks[key] = Task { @MainActor [weak self, weak menu] in
@@ -1112,7 +1131,7 @@ extension StatusItemController {
             let retryMissingSnapshotCount = retryProviders.count { self.store.snapshot(for: $0) == nil }
             let willRetryRefresh = retryStaleProviderCount > 0 || retryMissingSnapshotCount > 0
             guard willRetryRefresh else { return }
-            self.refreshStore(forceTokenUsage: false, refreshOpenMenusWhenComplete: false)
+            self.deferMenuInteractionRefreshIfNeeded()
         }
     }
 
