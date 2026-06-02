@@ -1,12 +1,19 @@
 # Changelog
 
-## 0.32.2 — Unreleased
+## 0.32.3 — Unreleased
+
+### Fixed
+- Copilot: treat GitHub Copilot Business token-billing zero-entitlement quotas as unavailable instead of showing misleading 0% used usage (#1258, #1270). Thanks @devYRPauli!
+- OpenAI Web: stop reloading away from login and Cloudflare blocking states so the dashboard WebView does not loop on route corrections (#1259). Thanks @ProspectOre!
+
+## 0.32.2 — 2026-06-01
 
 ### Added
 - QA: document the live CodexBar e2e flow and add a redacted provider-matrix helper for packaged CLI smoke tests.
 
 ### Fixed
 - Menu bar: add breathing room to compact Codex account rows so the provider, account, status, and plan labels no longer hug the row edges.
+- Performance: make Codex token-cost scanning faster and more memory-efficient on large local session corpora.
 
 ## 0.32.1 — 2026-05-31
 
