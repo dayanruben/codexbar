@@ -169,7 +169,7 @@ extension StatusMenuTests {
     }
 
     @Test
-    func `closed attached menu is prepared before next open after invalidation`() async {
+    func `closed merged menu defers rebuild until next open instead of pre-warming`() async {
         self.disableMenuCardsForTesting()
         let settings = self.makeSettings()
         settings.statusChecksEnabled = false
@@ -199,13 +199,29 @@ extension StatusMenuTests {
         let key = ObjectIdentifier(menu)
         let openedVersion = controller.menuVersions[key]
 
-        controller.invalidateMenus()
-        for _ in 0..<40 where controller.menuVersions[key] == openedVersion {
+        // Background data-refresh tick (stale allowed): the closed merged menu must not be pre-warmed.
+        controller.invalidateMenus(allowStaleContentDuringDataRefresh: true)
+        for _ in 0..<40 {
             await Task.yield()
         }
-
         #expect(controller.openMenus.isEmpty)
+        #expect(controller.menuContentVersion != openedVersion)
+        #expect(controller.menuVersions[key] == openedVersion)
+        #expect(controller.closedMenusDeferredUntilNextOpen.contains(key))
+
+        // A required (non-stale) invalidation must also leave the closed merged menu deferred.
+        controller.invalidateMenus()
+        for _ in 0..<40 {
+            await Task.yield()
+        }
+        #expect(controller.menuVersions[key] == openedVersion)
+        #expect(controller.closedMenusDeferredUntilNextOpen.contains(key))
+
+        // The deferred merged menu is repopulated synchronously on the next open.
+        controller.menuWillOpen(menu)
+        defer { controller.menuDidClose(menu) }
         #expect(controller.menuVersions[key] == controller.menuContentVersion)
+        #expect(!controller.closedMenusDeferredUntilNextOpen.contains(key))
     }
 
     @Test
@@ -231,7 +247,9 @@ extension StatusMenuTests {
 
         controller.menuRefreshEnabledOverrideForTesting = true
         let menu = controller.makeMenu()
-        controller.mergedMenu = menu
+        // Use a non-merged attached menu: the merged menu is intentionally never pre-warmed while
+        // closed (#1274), so the in-flight-refresh prep machinery is exercised via the fallback menu.
+        controller.fallbackMenu = menu
         controller.statusItem.menu = menu
 
         controller.populateMenu(menu, provider: nil)
@@ -281,7 +299,9 @@ extension StatusMenuTests {
 
         controller.menuRefreshEnabledOverrideForTesting = true
         let menu = controller.makeMenu()
-        controller.mergedMenu = menu
+        // Use a non-merged attached menu: the merged menu is intentionally never pre-warmed while
+        // closed (#1274), so the in-flight-refresh prep machinery is exercised via the fallback menu.
+        controller.fallbackMenu = menu
         controller.statusItem.menu = menu
 
         controller.populateMenu(menu, provider: nil)
@@ -721,7 +741,7 @@ extension StatusMenuTests {
         let menuKey = ObjectIdentifier(menu)
         controller.openMenus[menuKey] = menu
         controller.menuRefreshEnabledOverrideForTesting = true
-        controller._test_providerSwitcherMenuRebuildDebounceNanoseconds = 50_000_000
+        controller._test_providerSwitcherMenuRebuildDebounceNanoseconds = 0
         defer { controller._test_providerSwitcherMenuRebuildDebounceNanoseconds = nil }
 
         var rebuildCount = 0
@@ -729,21 +749,50 @@ extension StatusMenuTests {
             rebuildCount += 1
         }
         defer { controller._test_openMenuRebuildObserver = nil }
+        var refreshGateEntries = 0
+        var pendingRefreshGates: [CheckedContinuation<Void, Never>] = []
+        func resumePendingRefreshGates() {
+            let gates = pendingRefreshGates
+            pendingRefreshGates.removeAll(keepingCapacity: true)
+            for gate in gates {
+                gate.resume()
+            }
+        }
+        controller._test_openMenuRefreshYieldOverride = {
+            refreshGateEntries += 1
+            await withCheckedContinuation { continuation in
+                pendingRefreshGates.append(continuation)
+            }
+        }
+        defer {
+            resumePendingRefreshGates()
+            controller._test_openMenuRefreshYieldOverride = nil
+        }
 
         controller.deferSwitcherMenuRebuildIfStillVisible(menu, provider: .codex)
-        try? await Task.sleep(nanoseconds: 10_000_000)
-        controller.deferSwitcherMenuRebuildIfStillVisible(menu, provider: .codex)
-
-        try? await Task.sleep(nanoseconds: 25_000_000)
+        for _ in 0..<20 where refreshGateEntries == 0 {
+            await Task.yield()
+        }
+        #expect(refreshGateEntries == 1)
         #expect(rebuildCount == 0)
+
+        controller.deferSwitcherMenuRebuildIfStillVisible(menu, provider: .codex)
+        resumePendingRefreshGates()
+        for _ in 0..<20 where refreshGateEntries < 2 {
+            await Task.yield()
+        }
+        #expect(refreshGateEntries == 2)
+        #expect(rebuildCount == 0)
+        resumePendingRefreshGates()
 
         for _ in 0..<20 where rebuildCount == 0 {
             await Task.yield()
-            try? await Task.sleep(nanoseconds: 5_000_000)
         }
 
         #expect(rebuildCount == 1)
-        try? await Task.sleep(nanoseconds: 75_000_000)
+        for _ in 0..<20 {
+            await Task.yield()
+        }
         #expect(rebuildCount == 1)
     }
 
