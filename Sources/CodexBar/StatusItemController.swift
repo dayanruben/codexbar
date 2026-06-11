@@ -116,8 +116,11 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var menuProviders: [ObjectIdentifier: UsageProvider] = [:]
     var menuContentVersion: Int = 0
     var latestRequiredMenuRebuildVersion: Int = 0
+    var latestDataOnlyMenuContentVersion: Int = 0
+    var latestStructuralMenuContentVersion: Int = 0
     var menuVersions: [ObjectIdentifier: Int] = [:]
     var menuReadinessSignatures: [ObjectIdentifier: String] = [:]
+    let hostedSubviewRenderSignatures = NSMapTable<NSMenu, NSString>.weakToStrongObjects()
     var menuCardHeightCache: [MenuCardHeightCacheKey: CGFloat] = [:]
     var measuredStandardMenuWidthCache: [String: CGFloat] = [:]
     var lastMenuAdjunctReadinessSignature = ""
@@ -135,9 +138,14 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var openMenuRebuildTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
     var openMenuRebuildTokens: [ObjectIdentifier: Int] = [:]
     var openMenuRebuildTokenCounter = 0
+    var menuIdentitySignatures: [ObjectIdentifier: String] = [:]
     var openMenuRebuildsClosingHostedSubviewMenus: Set<ObjectIdentifier> = []
     var parentMenuRebuildsDeferredDuringTracking: Set<ObjectIdentifier> = []
-    var deferredMenuInteractionRefreshPending = false
+    var deferredMenuInteractionRefreshProviders: Set<UsageProvider> = []
+    var deferredMenuInteractionRefreshPending: Bool {
+        !self.deferredMenuInteractionRefreshProviders.isEmpty
+    }
+
     var deferredOpenAIDashboardRefreshReason: String?
     var deferredMenuInteractionRefreshTask: Task<Void, Never>?
     var highlightedMenuItems: [ObjectIdentifier: NSMenuItem] = [:]
@@ -234,6 +242,10 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var mergedSwitcherContentCaches: [ObjectIdentifier: [ProviderSwitcherSelection: CachedMergedSwitcherMenuContent]]
         = [:]
     var preservesMergedSwitcherContentCachesDuringInvalidation = false
+    /// Card hosting views harvested from items about to be discarded by the current populate
+    /// pass, keyed by card identifier; consumed by `makeMenuCardItem` and cleared when the
+    /// pass finishes. Never outlives a single synchronous menu population.
+    var menuCardViewRecyclePool: [String: NSView] = [:]
     /// Monotonic token used to ignore stale deferred provider-switcher menu rebuilds.
     var providerSwitcherUpdateToken = 0
     var providerSelectionUIRefreshTask: Task<Void, Never>?
@@ -644,6 +656,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         #endif
         let configChanged = self.settings.configRevision != self.lastConfigRevision
         let orderChanged = self.settings.providerOrder != self.lastProviderOrder
+        let localizationChanged = self.menuLocalizationSignature() != self.lastMenuLocalizationSignature
         let shouldRefreshOpenMenus = self.shouldRefreshOpenMenusForProviderSwitcher()
         self.invalidateMenus()
         if orderChanged || configChanged {
@@ -652,7 +665,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         self.updateVisibility()
         self.updateIcons()
         if shouldRefreshOpenMenus {
-            self.refreshOpenMenusForStructureChange()
+            self.refreshOpenMenusAllowingParentRebuild(
+                deferParentRebuildDuringTracking: !localizationChanged)
         }
     }
 

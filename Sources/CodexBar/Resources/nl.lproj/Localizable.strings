@@ -402,6 +402,7 @@
 "language_dutch" = "Nederlands";
 "language_french" = "Frans";
 "language_ukrainian" = "Oekraïens";
+"language_japanese" = "Japans";
 "language_swedish" = "Zweeds";
 "language_vietnamese" = "Vietnamees";
 "start_at_login_title" = "Begin bij Inloggen";
@@ -909,7 +910,7 @@
 "Antigravity login failed" = "Antigravity-aanmelding mislukt";
 "Antigravity login timed out" = "Er is een time-out opgetreden bij het inloggen op anti-zwaartekracht";
 "Auth source" = "Authenticatiebron";
-"Automatic imports Chrome browser cookies from Xiaomi MiMo." = "Importeert automatisch Chrome-browsercookies van Xiaomi MiMo.";
+"Automatic imports browser cookies from Xiaomi MiMo." = "Importeert automatisch browsercookies van Xiaomi MiMo.";
 "Automatic imports Windsurf session data from Chromium browser localStorage." = "Automatische import van windsurfsessiegegevens uit de Chromium-browser localStorage.";
 "Automatic imports browser cookies from Bailian." = "Importeert automatisch browsercookies van Bailian.";
 "Automatically imports browser cookies." = "Importeert automatisch browsercookies.";
@@ -1009,6 +1010,7 @@
 "Personal account" = "Persoonlijk account";
 "Project ID" = "Project-ID";
 "Re-auth" = "Opnieuw verifiëren";
+"Re-login at claude.ai" = "Opnieuw aanmelden bij claude.ai";
 "Re-authenticating…" = "Opnieuw authenticeren…";
 "Refresh Session" = "Sessie vernieuwen";
 "Refresh organizations" = "Vernieuw organisaties";
