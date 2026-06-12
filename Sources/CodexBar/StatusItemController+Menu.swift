@@ -49,15 +49,6 @@ extension StatusItemController {
         }
     }
 
-    private func menuCardWidth(
-        for providers: [UsageProvider],
-        sections: [MenuDescriptor.Section]) -> CGFloat
-    {
-        _ = providers
-        let baselineWidth = Self.menuCardBaseWidth
-        return max(baselineWidth, self.measuredStandardMenuWidth(for: sections, baseWidth: baselineWidth))
-    }
-
     func makeMenu() -> NSMenu {
         guard self.shouldMergeIcons else {
             return self.makeMenu(for: nil)
@@ -130,6 +121,8 @@ extension StatusItemController {
 
         let menuWasFreshBeforeOpen = !self.menuNeedsRefresh(menu)
         self.refreshMenuForOpenIfNeeded(menu, provider: provider)
+        self.scheduleCodexAccountMenuProjectionRevalidationIfNeeded(
+            for: self.renderedProviders(for: menu))
         if self.isMenuRefreshEnabled {
             // Intentionally skip open-menu tracking when refresh is disabled (tests).
             // If refresh is re-enabled while this menu stays open, it will not be backfilled until next open.
@@ -159,6 +152,7 @@ extension StatusItemController {
 
     func forgetClosedMenu(_ menu: NSMenu) {
         let key = ObjectIdentifier(menu)
+        let wasMergedMenu = menu === self.mergedMenu
 
         if key == self.providerSwitcherShortcutMenuID {
             self.removeProviderSwitcherShortcutMonitor()
@@ -185,6 +179,9 @@ extension StatusItemController {
         }
         self.parentMenuRebuildsDeferredDuringTracking.remove(key)
         self.scheduleDeferredMenuInteractionRefreshIfNeeded()
+        if wasMergedMenu {
+            self.applyDeferredMergedIconRenderAfterTrackingIfNeeded()
+        }
     }
 
     func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
@@ -213,6 +210,7 @@ extension StatusItemController {
                 menu: menu,
                 provider: provider)
         }
+        defer { self.refreshMenuCardHeights(in: menu) }
 
         let enabledProviders = self.store.enabledProvidersForDisplay()
         let includesOverview = self.includesOverviewTab(enabledProviders: enabledProviders)
@@ -240,16 +238,13 @@ extension StatusItemController {
         let openAIContext = self.openAIWebContext(
             currentProvider: currentProvider,
             showAllAccounts: showAllAccounts)
-        let descriptor = MenuDescriptor.build(
+        let descriptor = self.makeMenuDescriptor(
             provider: selectedProvider,
-            store: self.store,
-            settings: self.settings,
-            account: self.account,
-            managedCodexAccountCoordinator: self.managedCodexAccountCoordinator,
-            codexAccountPromotionCoordinator: self.codexAccountPromotionCoordinator,
-            updateReady: self.updater.updateStatus.isUpdateReady,
             includeContextualActions: !isOverviewSelected)
-        let menuWidth = self.menuCardWidth(for: enabledProviders, sections: descriptor.sections)
+        let menuWidth = self.menuCardWidth(
+            for: enabledProviders,
+            selectedProvider: selectedProvider,
+            descriptor: descriptor)
 
         let hasTokenSwitcher = menu.items.contains { $0.view is TokenAccountSwitcherView }
         let hasCodexSwitcher = menu.items.contains { $0.view is CodexAccountSwitcherView }
@@ -1090,7 +1085,7 @@ extension StatusItemController {
         return true
     }
 
-    private func resolvedMenuProvider(enabledProviders: [UsageProvider]? = nil) -> UsageProvider? {
+    func resolvedMenuProvider(enabledProviders: [UsageProvider]? = nil) -> UsageProvider? {
         let enabled = enabledProviders ?? self.store.enabledProvidersForDisplay()
         if enabled.isEmpty { return .codex }
         if let selected = self.selectedMenuProvider, enabled.contains(selected) {
@@ -1331,7 +1326,10 @@ extension StatusItemController {
             }
             let costSubmenu = webItems.hasCostHistory ? self
                 .makeCostHistorySubmenu(provider: provider, width: width) : nil
-            menu.addItem(self.makeCostMenuCardItem(model: model, submenu: costSubmenu))
+            menu.addItem(self.makeCostMenuCardItem(
+                model: model,
+                submenu: costSubmenu,
+                width: width))
         }
     }
 
