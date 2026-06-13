@@ -305,10 +305,15 @@ final class CLIEntryTests: XCTestCase {
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(.auto, provider: .kilo))
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(.auto, provider: .grok))
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(.web, provider: .grok))
+        XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(.auto, provider: .amp))
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(.api, provider: .kilo))
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(
             .auto,
             provider: .ollama,
+            environment: ["OLLAMA_API_KEY": "ollama-test"]))
+        XCTAssertTrue(CodexBarCLI.sourceModeRequiresWebSupport(
+            .auto,
+            provider: .codex,
             environment: ["OLLAMA_API_KEY": "ollama-test"]))
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(
             .auto,

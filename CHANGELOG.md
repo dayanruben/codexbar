@@ -1,20 +1,43 @@
 # Changelog
 
-## 0.33.1 — Unreleased
+## 0.34.1 — Unreleased
+
+- Menu bar: restore native macOS positioning for merged provider dropdowns while preparing current content before AppKit lays out the menu.
+
+## 0.34.0 — 2026-06-12
 
 ### Added
+- Copilot: optionally import GitHub billing budget windows, bind them to the active account, and expose budget metrics in cards and menu bar icons (#1273). Thanks @Quicksaver!
+- Localization: add native Korean language support across the app and language picker (#1460). Thanks @soohanpark!
+- Localization: add German as a selectable app language (#1245). Thanks @Yuxin-Qiao!
+- Localization: add Turkish as a selectable app language (#1232). Thanks @ykarateke!
 - Devin: add daily and weekly quota tracking from the signed-in Chrome session or a manual Bearer token (#1264, fixes #800). Thanks @coygeek!
+- Amp: add local `amp usage` support, including account identity and individual and workspace credit balances (fixes #1317). Thanks @3kh0!
+- Menu bar: add an optional reset-time display for the selected quota metric, with percent fallback when reset metadata is unavailable (#1223, fixes #1185). Thanks @Yuxin-Qiao!
+- Cursor: include application data, extensions, settings, and caches in optional local storage tracking (fixes #1403). Thanks @dhruv-anand-aintech!
 - Menu bar: move the highlighted Overview provider with trackpad or mouse-wheel scrolling while preserving native submenu and keyboard behavior (#1436). Thanks @joshuavial!
 
 ### Fixed
+- Launch at Login: remove pending registrations when disabled without re-registering entries awaiting user approval (#1469). Thanks @AmrMohamad!
+- CLI: keep Ollama API credentials scoped to Ollama when deciding whether another provider requires macOS web support (#1466). Thanks @WadydX!
+- Provider switcher: keep localized tab titles visible by tightening outer insets only when equal-width segments would otherwise truncate.
+- OpenAI API: follow Admin usage pagination for costs and completions so multi-page organization usage totals are not undercounted (#1465). Thanks @rohitjavvadi!
+- Settings: slightly increase the window height so standard panes fit without clipping their final controls or helper text.
+- Menu bar: show immediate in-place feedback for manual refreshes, keep tracked-menu geometry stable, and coalesce repeated clicks until the active refresh succeeds or fails (#1458). Thanks @hhh2210!
+- Grok: recover web billing from status-7 credential failures by combining current browser sessions with non-expired CLI auth, accept raw protobuf responses, and render current zero-use periods (#1452). Thanks @bcharleson!
+- Amp: restore usage fetching with access-token authentication for the current balance endpoint and retain browser-cookie settings parsing as a fallback. Thanks @3kh0!
+- Antigravity: detect current hyphenated IDE language-server processes inside Antigravity app bundles so local quota refreshes no longer report the IDE as unavailable (#1405). Thanks @lfmundim!
 - Menu bar: avoid republishing unchanged provider storage footprints so background scans no longer trigger unnecessary menu observation work (#1416). Thanks @soohanpark!
+- Cursor: show capped team Extra usage when no individual cap exists, and honor percent used/remaining menu bar display settings instead of always showing currency spend (#1426). Thanks @lpc-eol!
+- Cursor: derive a first-party web session from the signed-in Cursor.app as a final fallback, preserving account precedence and legacy request quotas (#1295). Thanks @Jackie-Qin!
 - Claude: explain that an unauthorized Web session requires signing in at claude.ai or refreshing imported cookies (#1287). Thanks @LeoLin990405!
 - CLI server: reload provider config for every usage and cost request, invalidate config-dependent cache entries, and prune expired config variants without restarting `codexbar serve`. Thanks @enieuwy!
 - Menu bar: reserve quota-bar space consistently across Overview and provider switcher segments so selection no longer changes segment height (#1445). Thanks @Zihao-Qi!
 - Cost usage: accept normal models.dev catalog churn while retaining prior model prices as fallbacks, so newly priced models appear without requiring a manual cache reset (#1438). Thanks @tom-rigelblu!
 - Menu bar: detect Tahoe Control Center proxy windows parked in the blocked offscreen slot during startup recovery, so hidden icons show the existing guidance without weakening menu-bar-manager safeguards (#1440).
 - AWS Bedrock: treat Cost Explorer's temporary data-unavailable response as zero usage instead of an HTTP 400 error (#1324). Thanks @enesteve0!
-- Provider switcher: place quota bars in a dedicated footer below normal-height segments and vertically center icons and labels, avoiding stretched pills and top-heavy buttons.
+- Provider switcher: inset quota bars inside fixed-height segments so icons, labels, and selected pills remain vertically centered.
+- Doubao: show an unavailable quota state when Ark omits trustworthy request-limit data instead of reporting 100% left.
 - Menu bar: anchor merged provider dropdowns to the status item's trailing edge without marking preserved in-flight refresh content fresh, preventing horizontal drift while keeping deferred updates visible (#1288). Thanks @Yuxin-Qiao!
 - Antigravity: fall back to the CLI usage server when the desktop app is closed, keep helper sessions owned and bounded without hidden sign-in flows, and show model rows with missing usage as unavailable instead of exhausted (#1313). Thanks @enieuwy!
 - Cost usage: replace repeated Foundation metadata/root checks with one portable file-stat pass so expired Codex history refreshes stay responsive on very large session archives (#1392). Thanks @TheAngryPit and @ProspectOre!

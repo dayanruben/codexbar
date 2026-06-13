@@ -98,6 +98,8 @@
 "Could not start codex login" = "No se pudo iniciar codex login";
 "Could not switch system account" = "No se pudo cambiar la cuenta del sistema";
 "Credits" = "Créditos";
+"Individual credits" = "Créditos individuales";
+"Workspace" = "Espacio de trabajo";
 "Credits history" = "Historial de créditos";
 "Cursor login failed" = "El inicio de sesión de Cursor falló";
 "Custom" = "Personalizado";
@@ -401,9 +403,11 @@
 "language_portuguese_brazilian" = "Português (Brasil)";
 "language_swedish" = "Sueco";
 "language_dutch" = "Nederlands";
+"language_german" = "Deutsch";
 "language_french" = "Francés";
 "language_ukrainian" = "Ucraniano";
 "language_japanese" = "Japonés";
+"language_korean" = "Coreano";
 "start_at_login_title" = "Abrir al iniciar sesión";
 "start_at_login_subtitle" = "Abre CodexBar automáticamente al iniciar tu Mac.";
 "show_cost_summary" = "Mostrar resumen de coste";
@@ -611,9 +615,11 @@
 "display_mode_percent" = "Porcentaje";
 "display_mode_pace" = "Ritmo";
 "display_mode_both" = "Ambos";
+"display_mode_reset_time" = "Tiempo de restablecimiento";
 "display_mode_percent_desc" = "Mostrar el porcentaje restante/usado (p. ej. 45 %)";
 "display_mode_pace_desc" = "Mostrar el indicador de ritmo (p. ej. +5 %)";
 "display_mode_both_desc" = "Mostrar porcentaje y ritmo (p. ej. 45 % · +5 %)";
+"display_mode_reset_time_desc" = "Mostrar el tiempo de restablecimiento de la métrica seleccionada (p. ej. ↻ 3:56 PM)";
 
 /* Provider status */
 "status_operational" = "Operativo";
@@ -924,3 +930,4 @@
 "Search providers" = "Buscar proveedores";
 
 "language_vietnamese" = "Vietnamita";
+"language_turkish" = "Türkçe";

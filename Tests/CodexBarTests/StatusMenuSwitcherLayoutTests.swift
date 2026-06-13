@@ -29,7 +29,7 @@ struct StatusMenuSwitcherLayoutTests {
             #expect(frame.maxY == overviewFrame.maxY)
         }
 
-        #expect(view._test_rowHeight() == 41)
+        #expect(view._test_rowHeight() == 36)
     }
 
     @Test
@@ -54,7 +54,7 @@ struct StatusMenuSwitcherLayoutTests {
         #expect(buttonFrames.count == 3)
         #expect(contentFrames.count == 3)
         #expect(trackFrames.count == 1)
-        #expect(view._test_rowHeight() == 35)
+        #expect(view._test_rowHeight() == 30)
 
         let overviewFrame = try #require(buttonFrames.first)
         for (buttonFrame, contentFrame) in zip(buttonFrames, contentFrames) {
@@ -67,11 +67,12 @@ struct StatusMenuSwitcherLayoutTests {
         let devinButtonFrame = try #require(buttonFrames.last)
         let devinTrackFrame = try #require(trackFrames.first)
         #expect(devinButtonFrame.height == 30)
-        #expect(devinTrackFrame.maxY < devinButtonFrame.minY)
+        #expect(devinTrackFrame.minY >= devinButtonFrame.minY)
+        #expect(devinTrackFrame.maxY <= devinButtonFrame.maxY)
     }
 
     @Test
-    func `quota indicator footer selects its provider`() {
+    func `integrated quota indicator selects its provider`() {
         let view = ProviderSwitcherView(
             providers: [.codex, .devin],
             selected: .provider(.codex),
@@ -83,5 +84,46 @@ struct StatusMenuSwitcherLayoutTests {
             onSelect: { _ in })
 
         #expect(view._test_simulateRuntimeClickOnQuotaIndicator(buttonTag: 2))
+    }
+
+    @Test
+    func `localized inline switcher titles fit without losing equal sizing`() throws {
+        try CodexBarLocalizationOverride.$appLanguage.withValue("tr") {
+            for width in stride(from: CGFloat(280), through: CGFloat(330), by: 1) {
+                let view = ProviderSwitcherView(
+                    providers: [.codex, .devin],
+                    selected: .overview,
+                    includesOverview: true,
+                    width: width,
+                    showsIcons: true,
+                    iconProvider: { _ in NSImage(size: NSSize(width: 16, height: 16)) },
+                    weeklyRemainingProvider: { _ in nil },
+                    onSelect: { _ in })
+                view.updateConstraintsForSubtreeIfNeeded()
+                view.layoutSubtreeIfNeeded()
+
+                let frames = view._test_buttonFrames()
+                let desiredWidths = view._test_buttonDesiredWidths()
+                #expect(frames.count == 3)
+                #expect(desiredWidths.count == frames.count)
+                let firstWidth = try #require(frames.first?.width)
+
+                for (frame, desiredWidth) in zip(frames, desiredWidths) {
+                    #expect(frame.width == firstWidth)
+                    let minimalInsetAllowedWidth = floor((width - 12 - 2) / 3)
+                    let evenMinimalInsetAllowedWidth = minimalInsetAllowedWidth
+                        .truncatingRemainder(dividingBy: 2) == 0
+                        ? minimalInsetAllowedWidth
+                        : minimalInsetAllowedWidth - 1
+                    let roundedDesiredWidth = ceil(desiredWidth)
+                    let evenDesiredWidth = roundedDesiredWidth.truncatingRemainder(dividingBy: 2) == 0
+                        ? roundedDesiredWidth
+                        : roundedDesiredWidth + 1
+                    if evenMinimalInsetAllowedWidth >= evenDesiredWidth {
+                        #expect(frame.width >= desiredWidth)
+                    }
+                }
+            }
+        }
     }
 }

@@ -99,6 +99,8 @@
 "Could not start codex login" = "Kunde inte starta codex login";
 "Could not switch system account" = "Kunde inte byta systemkonto";
 "Credits" = "Krediter";
+"Individual credits" = "Individuella krediter";
+"Workspace" = "Arbetsyta";
 "Credits history" = "Kredithistorik";
 "Cursor login failed" = "Cursor-inloggning misslyckades";
 "Custom" = "Anpassat";
@@ -401,10 +403,13 @@
 "language_chinese_traditional" = "繁體中文";
 "language_portuguese_brazilian" = "Português (Brasil)";
 "language_dutch" = "Nederlands";
+"language_german" = "Deutsch";
 "language_swedish" = "Svenska";
 "language_french" = "Franska";
 "language_ukrainian" = "Ukrainska";
 "language_japanese" = "Japanska";
+"language_korean" = "Koreanska";
+"language_turkish" = "Türkçe";
 "start_at_login_title" = "Starta vid inloggning";
 "start_at_login_subtitle" = "Öppnar CodexBar automatiskt när du startar din Mac.";
 "show_cost_summary" = "Visa kostnadssammanfattning";
@@ -622,9 +627,11 @@
 "display_mode_percent" = "Procent";
 "display_mode_pace" = "Takt";
 "display_mode_both" = "Båda";
+"display_mode_reset_time" = "Återställningstid";
 "display_mode_percent_desc" = "Visa återstående/förbrukad procent (t.ex. 45 %)";
 "display_mode_pace_desc" = "Visa taktindikator (t.ex. +5 %)";
 "display_mode_both_desc" = "Visa både procent och takt (t.ex. 45 % · +5 %)";
+"display_mode_reset_time_desc" = "Visa återställningstiden för valt mått (t.ex. ↻ 3:56 PM)";
 
 /* Provider status */
 "status_operational" = "Fungerar normalt";

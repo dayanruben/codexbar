@@ -43,12 +43,8 @@ final class ProviderSwitcherView: NSView {
     private var selectedSegmentIndex: Int?
     private let lightModeOverlayLayer = CALayer()
     private static let quotaIndicatorHeight: CGFloat = 2
-    private static let quotaIndicatorBottomInset: CGFloat = 1
+    private static let quotaIndicatorBottomInset: CGFloat = 2
     private static let quotaIndicatorHorizontalInset: CGFloat = 8
-    private static let quotaIndicatorContentGap: CGFloat = 2
-    private static var quotaIndicatorGutterHeight: CGFloat {
-        self.quotaIndicatorContentGap + self.quotaIndicatorHeight + self.quotaIndicatorBottomInset
-    }
 
     init(
         providers: [UsageProvider],
@@ -104,7 +100,6 @@ final class ProviderSwitcherView: NSView {
             stackedIcons: self.stackedIcons)
         self.rowSpacing = self.stackedIcons ? 4 : 2
         self.rowHeight = Self.switcherButtonHeight(stackedIcons: self.stackedIcons, rowCount: self.rowCount)
-            + Self.quotaIndicatorGutterHeight
         let height: CGFloat = self.rowHeight * CGFloat(self.rowCount)
             + self.rowSpacing * CGFloat(max(0, self.rowCount - 1))
         self.preferredWidth = width
@@ -115,17 +110,6 @@ final class ProviderSwitcherView: NSView {
         self.lightModeOverlayLayer.masksToBounds = false
         self.layer?.insertSublayer(self.lightModeOverlayLayer, at: 0)
         self.updateLightModeStyling()
-
-        let layoutCount = Self.layoutCount(for: self.segments.count, rows: self.rowCount)
-        let outerPadding: CGFloat = Self.switcherOuterPadding(
-            for: width,
-            count: layoutCount,
-            minimumGap: minimumGap)
-        let maxAllowedSegmentWidth = Self.maxAllowedUniformSegmentWidth(
-            for: width,
-            count: layoutCount,
-            outerPadding: outerPadding,
-            minimumGap: minimumGap)
 
         func makeButton(index: Int, segment: Segment) -> NSButton {
             let button: NSButton
@@ -177,8 +161,7 @@ final class ProviderSwitcherView: NSView {
             button.state = (selected == segment.selection) ? .on : .off
             button.toolTip = nil
             button.translatesAutoresizingMaskIntoConstraints = false
-            button.heightAnchor.constraint(
-                equalToConstant: self.rowHeight - Self.quotaIndicatorGutterHeight).isActive = true
+            button.heightAnchor.constraint(equalToConstant: self.rowHeight).isActive = true
             self.buttons.append(button)
             return button
         }
@@ -195,22 +178,32 @@ final class ProviderSwitcherView: NSView {
             self.segments.firstIndex { $0.selection == selected }
         }
 
+        let layoutCount = Self.layoutCount(for: self.segments.count, rows: self.rowCount)
+        let requiredUniformWidth = self.stackedIcons
+            ? nil
+            : self.buttons.map(Self.maxToggleWidth(for:)).max()
+        let layoutMetrics = Self.switcherLayoutMetrics(
+            for: width,
+            count: layoutCount,
+            minimumGap: minimumGap,
+            requiredSegmentWidth: requiredUniformWidth)
+
         let uniformWidth: CGFloat
         if self.rowCount > 1 || !self.stackedIcons {
-            uniformWidth = self.applyUniformSegmentWidth(maxAllowedWidth: maxAllowedSegmentWidth)
+            uniformWidth = self.applyUniformSegmentWidth(maxAllowedWidth: layoutMetrics.maxAllowedSegmentWidth)
             if uniformWidth > 0 {
                 self.segmentWidths = Array(repeating: uniformWidth, count: self.buttons.count)
             }
         } else {
             self.segmentWidths = self.applyNonUniformSegmentWidths(
                 totalWidth: width,
-                outerPadding: outerPadding,
+                outerPadding: layoutMetrics.outerPadding,
                 minimumGap: minimumGap)
             uniformWidth = 0
         }
 
         self.applyLayout(
-            outerPadding: outerPadding,
+            outerPadding: layoutMetrics.outerPadding,
             minimumGap: minimumGap,
             uniformWidth: uniformWidth)
         if width > 0 {
@@ -383,13 +376,9 @@ final class ProviderSwitcherView: NSView {
             gap.priority = .defaultHigh
             NSLayoutConstraint.activate([
                 left.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: outerPadding),
-                left.centerYAnchor.constraint(
-                    equalTo: self.centerYAnchor,
-                    constant: -Self.quotaIndicatorGutterHeight / 2),
+                left.centerYAnchor.constraint(equalTo: self.centerYAnchor),
                 right.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -outerPadding),
-                right.centerYAnchor.constraint(
-                    equalTo: self.centerYAnchor,
-                    constant: -Self.quotaIndicatorGutterHeight / 2),
+                right.centerYAnchor.constraint(equalTo: self.centerYAnchor),
                 gap,
             ])
             return
@@ -409,17 +398,11 @@ final class ProviderSwitcherView: NSView {
 
             NSLayoutConstraint.activate([
                 left.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: outerPadding),
-                left.centerYAnchor.constraint(
-                    equalTo: self.centerYAnchor,
-                    constant: -Self.quotaIndicatorGutterHeight / 2),
+                left.centerYAnchor.constraint(equalTo: self.centerYAnchor),
                 mid.centerXAnchor.constraint(equalTo: self.centerXAnchor),
-                mid.centerYAnchor.constraint(
-                    equalTo: self.centerYAnchor,
-                    constant: -Self.quotaIndicatorGutterHeight / 2),
+                mid.centerYAnchor.constraint(equalTo: self.centerYAnchor),
                 right.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -outerPadding),
-                right.centerYAnchor.constraint(
-                    equalTo: self.centerYAnchor,
-                    constant: -Self.quotaIndicatorGutterHeight / 2),
+                right.centerYAnchor.constraint(equalTo: self.centerYAnchor),
                 leftGap,
                 rightGap,
             ])
@@ -458,9 +441,7 @@ final class ProviderSwitcherView: NSView {
                 } else {
                     NSLayoutConstraint.activate([
                         button.leadingAnchor.constraint(equalTo: rowContainer.leadingAnchor, constant: xOffset),
-                        button.centerYAnchor.constraint(
-                            equalTo: rowContainer.centerYAnchor,
-                            constant: -Self.quotaIndicatorGutterHeight / 2),
+                        button.centerYAnchor.constraint(equalTo: rowContainer.centerYAnchor),
                     ])
                 }
                 xOffset += width + computedGap
@@ -471,9 +452,7 @@ final class ProviderSwitcherView: NSView {
         if let first = self.buttons.first {
             NSLayoutConstraint.activate([
                 first.centerXAnchor.constraint(equalTo: self.centerXAnchor),
-                first.centerYAnchor.constraint(
-                    equalTo: self.centerYAnchor,
-                    constant: -Self.quotaIndicatorGutterHeight / 2),
+                first.centerYAnchor.constraint(equalTo: self.centerYAnchor),
             ])
         }
     }
@@ -537,9 +516,7 @@ final class ProviderSwitcherView: NSView {
                 let xOffset = CGFloat(columnIndex) * (uniformWidth + computedGap)
                 NSLayoutConstraint.activate([
                     button.leadingAnchor.constraint(equalTo: gridContainer.leadingAnchor, constant: xOffset),
-                    button.centerYAnchor.constraint(
-                        equalTo: rowView.centerYAnchor,
-                        constant: -Self.quotaIndicatorGutterHeight / 2),
+                    button.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
                 ])
             }
         }
@@ -601,7 +578,12 @@ final class ProviderSwitcherView: NSView {
         return rowCount >= 3 ? 39 : 36
     }
 
-    private static func switcherOuterPadding(for width: CGFloat, count: Int, minimumGap: CGFloat) -> CGFloat {
+    private static func switcherOuterPadding(
+        for width: CGFloat,
+        count: Int,
+        minimumGap: CGFloat,
+        requiredSegmentWidth: CGFloat? = nil) -> CGFloat
+    {
         // Align with the card's left/right content grid when possible.
         let preferred: CGFloat = 16
         let reduced: CGFloat = 10
@@ -616,8 +598,27 @@ final class ProviderSwitcherView: NSView {
         // Only sacrifice padding when we'd otherwise squeeze buttons into unreadable widths.
         let minimumComfortableAverage: CGFloat = count >= 5 ? 50 : 54
 
-        if averageButtonWidth(outerPadding: preferred) >= minimumComfortableAverage { return preferred }
-        if averageButtonWidth(outerPadding: reduced) >= minimumComfortableAverage { return reduced }
+        func fits(outerPadding: CGFloat) -> Bool {
+            if let requiredSegmentWidth {
+                let allowedWidth = self.maxAllowedUniformSegmentWidth(
+                    for: width,
+                    count: count,
+                    outerPadding: outerPadding,
+                    minimumGap: minimumGap)
+                let evenAllowedWidth = allowedWidth.truncatingRemainder(dividingBy: 2) == 0
+                    ? allowedWidth
+                    : allowedWidth - 1
+                let desiredWidth = ceil(requiredSegmentWidth)
+                let evenDesiredWidth = desiredWidth.truncatingRemainder(dividingBy: 2) == 0
+                    ? desiredWidth
+                    : desiredWidth + 1
+                return evenAllowedWidth >= evenDesiredWidth
+            }
+            return averageButtonWidth(outerPadding: outerPadding) >= minimumComfortableAverage
+        }
+
+        if fits(outerPadding: preferred) { return preferred }
+        if fits(outerPadding: reduced) { return reduced }
         return minimal
     }
 
@@ -916,13 +917,29 @@ final class ProviderSwitcherView: NSView {
 }
 
 extension ProviderSwitcherView {
+    private static func switcherLayoutMetrics(
+        for width: CGFloat,
+        count: Int,
+        minimumGap: CGFloat,
+        requiredSegmentWidth: CGFloat?) -> (outerPadding: CGFloat, maxAllowedSegmentWidth: CGFloat)
+    {
+        let outerPadding = self.switcherOuterPadding(
+            for: width,
+            count: count,
+            minimumGap: minimumGap,
+            requiredSegmentWidth: requiredSegmentWidth)
+        let maxAllowedSegmentWidth = self.maxAllowedUniformSegmentWidth(
+            for: width,
+            count: count,
+            outerPadding: outerPadding,
+            minimumGap: minimumGap)
+        return (outerPadding, maxAllowedSegmentWidth)
+    }
+}
+
+extension ProviderSwitcherView {
     fileprivate func button(at location: NSPoint) -> NSButton? {
-        self.buttons.first { button in
-            var hitFrame = button.frame
-            hitFrame.origin.y -= Self.quotaIndicatorGutterHeight
-            hitFrame.size.height += Self.quotaIndicatorGutterHeight
-            return hitFrame.contains(location)
-        }
+        self.buttons.first { $0.frame.contains(location) }
     }
 }
 
@@ -1012,6 +1029,10 @@ extension ProviderSwitcherView {
         self.buttons.map(\.fittingSize)
     }
 
+    func _test_buttonDesiredWidths() -> [CGFloat] {
+        self.buttons.map(Self.maxToggleWidth(for:))
+    }
+
     func _test_buttonContentFrames() -> [NSRect?] {
         self.buttons.map { button in
             button.subviews.first(where: { $0 is NSStackView })?.frame
@@ -1068,7 +1089,7 @@ extension ProviderSwitcherView {
         track.layer?.cornerRadius = Self.quotaIndicatorHeight / 2
         track.layer?.masksToBounds = true
         track.translatesAutoresizingMaskIntoConstraints = false
-        self.addSubview(track)
+        view.addSubview(track)
 
         let fill = NSView()
         fill.wantsLayer = true
@@ -1090,9 +1111,9 @@ extension ProviderSwitcherView {
             track.trailingAnchor.constraint(
                 equalTo: view.trailingAnchor,
                 constant: -Self.quotaIndicatorHorizontalInset),
-            track.topAnchor.constraint(
+            track.bottomAnchor.constraint(
                 equalTo: view.bottomAnchor,
-                constant: Self.quotaIndicatorContentGap),
+                constant: -Self.quotaIndicatorBottomInset),
             track.heightAnchor.constraint(equalToConstant: Self.quotaIndicatorHeight),
             fill.leadingAnchor.constraint(equalTo: track.leadingAnchor),
             fill.topAnchor.constraint(equalTo: track.topAnchor),
