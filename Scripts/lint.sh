@@ -15,11 +15,21 @@ check_codex_parser_hash() {
   "${ROOT_DIR}/Scripts/regenerate-codex-parser-hash.sh" --check
 }
 
+check_package_product_paths() {
+  "${ROOT_DIR}/Scripts/test_package_product_paths.sh"
+}
+
+check_release_dsym_paths() {
+  "${ROOT_DIR}/Scripts/test_release_dsym_paths.sh"
+}
+
 cmd="${1:-lint}"
 
 case "$cmd" in
   lint)
     check_codex_parser_hash
+    check_package_product_paths
+    check_release_dsym_paths
     ensure_tools
     "${BIN_DIR}/swiftformat" Sources Tests --lint
     "${BIN_DIR}/swiftlint" --strict

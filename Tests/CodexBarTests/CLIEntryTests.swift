@@ -299,7 +299,24 @@ final class CLIEntryTests: XCTestCase {
             attempts: attempts))
     }
 
-    func test_sourceModeRequiresWebSupportIsProviderAware() {
+    func test_sourceModeRequiresWebSupportIsProviderAware() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mimo-cli-source-mode-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let validMiMoCache = directory.appendingPathComponent("valid.json")
+        let invalidMiMoCache = directory.appendingPathComponent("invalid.json")
+        let payload: [String: Any] = [
+            "sessions_scanned": 1,
+            "windows": [
+                "today": [:],
+                "week": [:],
+                "all_time": [:],
+            ],
+        ]
+        try JSONSerialization.data(withJSONObject: payload).write(to: validMiMoCache)
+        try Data("{}".utf8).write(to: invalidMiMoCache)
+
         XCTAssertTrue(CodexBarCLI.sourceModeRequiresWebSupport(.web, provider: .kilo))
         XCTAssertTrue(CodexBarCLI.sourceModeRequiresWebSupport(.auto, provider: .codex))
         XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(.auto, provider: .kilo))
@@ -320,5 +337,25 @@ final class CLIEntryTests: XCTestCase {
             provider: .ollama,
             settings: ProviderSettingsSnapshot.make(
                 ollama: .init(cookieSource: .off, manualCookieHeader: nil))))
+        XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(
+            .auto,
+            provider: .kimi,
+            environment: ["KIMI_CODE_API_KEY": "kimi-test"]))
+        XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(
+            .auto,
+            provider: .mimo,
+            environment: ["MIMO_LOCAL_USAGE_PATH": validMiMoCache.path]))
+        XCTAssertTrue(CodexBarCLI.sourceModeRequiresWebSupport(
+            .web,
+            provider: .mimo,
+            environment: ["MIMO_LOCAL_USAGE_PATH": validMiMoCache.path]))
+        XCTAssertFalse(CodexBarCLI.sourceModeRequiresWebSupport(
+            .auto,
+            provider: .mimo,
+            environment: ["MIMO_LOCAL_USAGE_PATH": invalidMiMoCache.path]))
+        XCTAssertTrue(CodexBarCLI.sourceModeRequiresWebSupport(
+            .auto,
+            provider: .mimo,
+            environment: ["MIMO_LOCAL_USAGE_PATH": directory.appendingPathComponent("missing.json").path]))
     }
 }

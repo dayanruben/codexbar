@@ -558,6 +558,19 @@ extension CodexBarCLI {
                 return false
             }
         }
+        if provider == .kimi,
+           sourceMode == .auto,
+           environment.map({ ProviderTokenResolver.kimiAPIToken(environment: $0) != nil }) == true
+        {
+            return false
+        }
+        if provider == .mimo,
+           sourceMode == .auto,
+           let environment,
+           MiMoLocalUsageFallback.cacheExists(environment: environment)
+        {
+            return false
+        }
         return switch sourceMode {
         case .web:
             true
