@@ -2,15 +2,18 @@ import Foundation
 
 package final class ProcessPipeCapture: @unchecked Sendable {
     private let handle: FileHandle
+    private let onData: (@Sendable () -> Void)?
     private let condition = NSCondition()
     private var data = Data()
     private var activeCallbacks = 0
     private var isFinished = false
+    private var didReachEOF = false
     private var isStopping = false
     private var continuation: CheckedContinuation<Void, Never>?
 
-    package init(pipe: Pipe) {
+    package init(pipe: Pipe, onData: (@Sendable () -> Void)? = nil) {
         self.handle = pipe.fileHandleForReading
+        self.onData = onData
     }
 
     package func start() {
@@ -28,8 +31,24 @@ package final class ProcessPipeCapture: @unchecked Sendable {
         return self.stopAndSnapshot()
     }
 
+    package func finishSynchronously(timeout: TimeInterval) -> Data {
+        let deadline = Date().addingTimeInterval(max(0, timeout))
+        self.condition.lock()
+        while !self.isFinished, !self.isStopping {
+            guard self.condition.wait(until: deadline) else { break }
+        }
+        self.condition.unlock()
+        return self.stopAndSnapshot()
+    }
+
     package func stop() {
         _ = self.stopAndSnapshot()
+    }
+
+    package var reachedEOF: Bool {
+        self.condition.lock()
+        defer { self.condition.unlock() }
+        return self.didReachEOF
     }
 
     private func handleReadableData(from handle: FileHandle) {
@@ -47,6 +66,7 @@ package final class ProcessPipeCapture: @unchecked Sendable {
         self.condition.lock()
         if chunk.isEmpty {
             self.isFinished = true
+            self.didReachEOF = true
             continuation = self.continuation
             self.continuation = nil
         } else {
@@ -60,6 +80,8 @@ package final class ProcessPipeCapture: @unchecked Sendable {
 
         if chunk.isEmpty {
             handle.readabilityHandler = nil
+        } else {
+            self.onData?()
         }
         continuation?.resume()
     }

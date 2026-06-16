@@ -882,9 +882,10 @@ extension UsageMenuCardView.Model {
         let creditsText = PersonalInfoRedactor.redactEmails(in: rawCreditsText, isEnabled: input.hidePersonalInfo)
         let isClaudeAdminAPI = input.provider == .claude &&
             input.snapshot?.identity?.loginMethod == "Admin API"
+        let isRequiredOpenCodeZenBalance = Self.isRequiredOpenCodeZenBalance(input.snapshot)
         let hidesOptionalProviderCost = ((input.provider == .claude && !isClaudeAdminAPI) ||
             input.provider == .factory ||
-            input.provider == .opencodego) &&
+            (input.provider == .opencodego && !isRequiredOpenCodeZenBalance)) &&
             !input.showOptionalCreditsAndExtraUsage
         let providerCost: ProviderCostSection? = if hidesOptionalProviderCost ||
             (input.provider == .openai && openAIAPIUsage != nil)
@@ -974,34 +975,6 @@ extension UsageMenuCardView.Model {
             notes.append(L("API key limit unavailable right now"))
         }
         return notes + subscriptionNotes
-    }
-
-    private static func subscriptionMetadataNotes(snapshot: UsageSnapshot?, provider: UsageProvider) -> [String] {
-        guard let snapshot else { return [] }
-        if let renewsAt = snapshot.subscriptionRenewsAt {
-            return [String(format: L("Renews: %@"), self.subscriptionDateString(renewsAt, provider: provider))]
-        }
-        if let expiresAt = snapshot.subscriptionExpiresAt {
-            return [String(format: L("Plan expires: %@"), self.subscriptionDateString(expiresAt, provider: provider))]
-        }
-        return []
-    }
-
-    private static func subscriptionDateString(_ date: Date, provider: UsageProvider) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        formatter.timeZone = self.subscriptionDateTimeZone(provider: provider)
-        formatter.setLocalizedDateFormatFromTemplate("MMM d, yyyy")
-        return formatter.string(from: date)
-    }
-
-    private static func subscriptionDateTimeZone(provider: UsageProvider) -> TimeZone {
-        switch provider {
-        case .minimax:
-            TimeZone(identifier: "Asia/Shanghai") ?? .current
-        default:
-            .current
-        }
     }
 
     private static func openRouterSpendNotes(_ usage: OpenRouterUsageSnapshot) -> [String] {
@@ -1342,6 +1315,9 @@ extension UsageMenuCardView.Model {
            !detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         {
             primaryDetailText = detail
+        }
+        if let balance = Self.poeBalanceDetailText(input: input) {
+            primaryDetailText = balance
         }
         if input.provider == .kiro,
            let kiroUsage = input.snapshot?.kiroUsage,

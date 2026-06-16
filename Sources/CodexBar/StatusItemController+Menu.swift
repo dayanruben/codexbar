@@ -161,26 +161,23 @@ extension StatusItemController {
             self.removeProviderSwitcherShortcutMonitor()
         }
 
-        self.cancelClosedMenuRebuild(menu)
         self.clearMergedSwitcherContentCache(for: menu)
         self.openMenus.removeValue(forKey: key)
-        self.menuRefreshTasks.removeValue(forKey: key)?.cancel()
-        self.openMenuRebuildTasks.removeValue(forKey: key)?.cancel()
-        self.openMenuRebuildTokens.removeValue(forKey: key)
-        self.openMenuRebuildsClosingHostedSubviewMenus.remove(key)
-        if let highlightedView = self.highlightedMenuItems.removeValue(forKey: key)?.view {
-            (highlightedView as? MenuCardHighlighting)?.setHighlighted(false)
+        if self.openMenus.isEmpty {
+            self.parentMenuRebuildPendingAfterHostedSubviewClose = false
         }
+        self.cancelMenuWork(key)
+        self.clearMenuHighlight(key)
 
         let isPersistentMenu = menu === self.mergedMenu ||
             menu === self.fallbackMenu ||
             self.providerMenus.values.contains { $0 === menu }
         if !isPersistentMenu {
-            self.clearTransientMenuTrackingState(key)
+            self.removeMenuTrackingState(key)
         } else if self.menuNeedsRefresh(menu) {
             self.handleClosedPersistentMenuNeedingRefresh(menu)
         }
-        self.parentMenuRebuildsDeferredDuringTracking.remove(key)
+        self.menuSession.clearParentRebuildDeferral(key)
         self.scheduleDeferredMenuInteractionRefreshIfNeeded()
         if wasMergedMenu {
             self.applyDeferredMergedIconRenderAfterTrackingIfNeeded()
@@ -443,7 +440,7 @@ extension StatusItemController {
                 selection: contentSelection,
                 contentStartIndex: self.providerSwitcherContentStartIndex(in: menu),
                 menuWidth: context.menuWidth,
-                contentVersion: self.menuContentVersion)
+                contentVersion: self.menuSession.contentVersion)
         }
     }
 
@@ -1381,24 +1378,7 @@ extension StatusItemController {
                 secondaryOverrideWindowID: self.settings.copilotIconSecondaryWindowOverrideID(snapshot: $0))
         }
         let primary = resolved?.primary
-        var weekly = resolved?.secondary
-        if showUsed,
-           provider == .warp,
-           let remaining = snapshot?.secondary?.remainingPercent,
-           remaining <= 0
-        {
-            // Preserve Warp "no bonus/exhausted bonus" layout even in show-used mode.
-            weekly = 0
-        }
-        if showUsed,
-           provider == .warp,
-           let remaining = snapshot?.secondary?.remainingPercent,
-           remaining > 0,
-           weekly == 0
-        {
-            // In show-used mode, `0` means "unused", not "missing". Keep the weekly lane present.
-            weekly = 0.0001
-        }
+        let weekly = resolved?.secondary
         let creditsProjection = self.store.codexConsumerProjectionIfNeeded(
             for: provider,
             surface: .menuBar,

@@ -408,8 +408,11 @@
 "language_ukrainian" = "Ukrainien";
 "language_japanese" = "Japonais";
 "language_korean" = "Coréen";
+"language_italian" = "Italiano";
 "language_vietnamese" = "Vietnamien";
 "language_turkish" = "Türkçe";
+"language_indonesian" = "Indonésien";
+"language_polish" = "Polonais";
 "start_at_login_title" = "Lancer à l'ouverture de session";
 "start_at_login_subtitle" = "Ouvre automatiquement CodexBar au démarrage de votre Mac.";
 "show_cost_summary" = "Afficher le récapitulatif des coûts";
@@ -1073,3 +1076,6 @@
 "Clear" = "Effacer";
 "No matching providers" = "Aucun fournisseur correspondant";
 "Search providers" = "Fournisseurs de recherche";
+"language_arabic" = "العربية";
+"language_persian" = "فارسی";
+"language_thai" = "ไทย";

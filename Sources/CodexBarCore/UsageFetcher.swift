@@ -134,6 +134,7 @@ public struct UsageSnapshot: Codable, Sendable {
     public let claudeAdminAPIUsage: ClaudeAdminAPIUsageSnapshot?
     public let mistralUsage: MistralUsageSnapshot?
     public let deepgramUsage: DeepgramUsageSnapshot?
+    public let poeUsage: PoeUsageHistorySnapshot?
     public let cursorRequests: CursorRequestUsage?
     public let subscriptionExpiresAt: Date?
     public let subscriptionRenewsAt: Date?
@@ -154,6 +155,7 @@ public struct UsageSnapshot: Codable, Sendable {
         case claudeAdminAPIUsage
         case mistralUsage
         case deepgramUsage
+        case poeUsage
         case subscriptionExpiresAt
         case subscriptionRenewsAt
         case updatedAt
@@ -180,6 +182,7 @@ public struct UsageSnapshot: Codable, Sendable {
         claudeAdminAPIUsage: ClaudeAdminAPIUsageSnapshot? = nil,
         mistralUsage: MistralUsageSnapshot? = nil,
         deepgramUsage: DeepgramUsageSnapshot? = nil,
+        poeUsage: PoeUsageHistorySnapshot? = nil,
         cursorRequests: CursorRequestUsage? = nil,
         subscriptionExpiresAt: Date? = nil,
         subscriptionRenewsAt: Date? = nil,
@@ -202,6 +205,7 @@ public struct UsageSnapshot: Codable, Sendable {
         self.claudeAdminAPIUsage = claudeAdminAPIUsage
         self.mistralUsage = mistralUsage
         self.deepgramUsage = deepgramUsage
+        self.poeUsage = poeUsage
         self.cursorRequests = cursorRequests
         self.subscriptionExpiresAt = subscriptionExpiresAt
         self.subscriptionRenewsAt = subscriptionRenewsAt
@@ -210,28 +214,13 @@ public struct UsageSnapshot: Codable, Sendable {
     }
 
     public func with(extraRateWindows: [NamedRateWindow]?) -> UsageSnapshot {
-        UsageSnapshot(
-            primary: self.primary,
-            secondary: self.secondary,
-            tertiary: self.tertiary,
-            extraRateWindows: extraRateWindows,
-            kiroUsage: self.kiroUsage,
-            ampUsage: self.ampUsage,
-            providerCost: self.providerCost,
-            zaiUsage: self.zaiUsage,
-            minimaxUsage: self.minimaxUsage,
-            deepseekUsage: self.deepseekUsage,
-            mimoUsage: self.mimoUsage,
-            openRouterUsage: self.openRouterUsage,
-            openAIAPIUsage: self.openAIAPIUsage,
-            claudeAdminAPIUsage: self.claudeAdminAPIUsage,
-            mistralUsage: self.mistralUsage,
-            deepgramUsage: self.deepgramUsage,
-            cursorRequests: self.cursorRequests,
-            subscriptionExpiresAt: self.subscriptionExpiresAt,
-            subscriptionRenewsAt: self.subscriptionRenewsAt,
-            updatedAt: self.updatedAt,
-            identity: self.identity)
+        self.replacing(extraRateWindows: .value(extraRateWindows))
+    }
+
+    public func with(primary: RateWindow?, secondary: RateWindow?) -> UsageSnapshot {
+        self.replacing(
+            primary: .value(primary),
+            secondary: .value(secondary))
     }
 
     public init(from decoder: Decoder) throws {
@@ -254,6 +243,7 @@ public struct UsageSnapshot: Codable, Sendable {
             forKey: .claudeAdminAPIUsage)
         self.mistralUsage = try container.decodeIfPresent(MistralUsageSnapshot.self, forKey: .mistralUsage)
         self.deepgramUsage = try container.decodeIfPresent(DeepgramUsageSnapshot.self, forKey: .deepgramUsage)
+        self.poeUsage = try container.decodeIfPresent(PoeUsageHistorySnapshot.self, forKey: .poeUsage)
         self.cursorRequests = nil // Not persisted, fetched fresh each time
         self.subscriptionExpiresAt = try container.decodeIfPresent(Date.self, forKey: .subscriptionExpiresAt)
         self.subscriptionRenewsAt = try container.decodeIfPresent(Date.self, forKey: .subscriptionRenewsAt)
@@ -292,6 +282,7 @@ public struct UsageSnapshot: Codable, Sendable {
         try container.encodeIfPresent(self.claudeAdminAPIUsage, forKey: .claudeAdminAPIUsage)
         try container.encodeIfPresent(self.mistralUsage, forKey: .mistralUsage)
         try container.encodeIfPresent(self.deepgramUsage, forKey: .deepgramUsage)
+        try container.encodeIfPresent(self.poeUsage, forKey: .poeUsage)
         try container.encodeIfPresent(self.subscriptionExpiresAt, forKey: .subscriptionExpiresAt)
         try container.encodeIfPresent(self.subscriptionRenewsAt, forKey: .subscriptionRenewsAt)
         try container.encode(self.updatedAt, forKey: .updatedAt)
@@ -379,30 +370,8 @@ public struct UsageSnapshot: Codable, Sendable {
         UsageLimitsAvailability.resolve(provider: provider, snapshot: self).isUnavailable
     }
 
-    /// Keep this initializer-style copy in sync with UsageSnapshot fields so relabeling/scoping never drops data.
     public func withIdentity(_ identity: ProviderIdentitySnapshot?) -> UsageSnapshot {
-        UsageSnapshot(
-            primary: self.primary,
-            secondary: self.secondary,
-            tertiary: self.tertiary,
-            extraRateWindows: self.extraRateWindows,
-            kiroUsage: self.kiroUsage,
-            ampUsage: self.ampUsage,
-            providerCost: self.providerCost,
-            zaiUsage: self.zaiUsage,
-            minimaxUsage: self.minimaxUsage,
-            deepseekUsage: self.deepseekUsage,
-            mimoUsage: self.mimoUsage,
-            openRouterUsage: self.openRouterUsage,
-            openAIAPIUsage: self.openAIAPIUsage,
-            claudeAdminAPIUsage: self.claudeAdminAPIUsage,
-            mistralUsage: self.mistralUsage,
-            deepgramUsage: self.deepgramUsage,
-            cursorRequests: self.cursorRequests,
-            subscriptionExpiresAt: self.subscriptionExpiresAt,
-            subscriptionRenewsAt: self.subscriptionRenewsAt,
-            updatedAt: self.updatedAt,
-            identity: identity)
+        self.replacing(identity: .value(identity))
     }
 
     public func scoped(to provider: UsageProvider) -> UsageSnapshot {
@@ -421,28 +390,10 @@ public struct UsageSnapshot: Codable, Sendable {
         if primary == self.primary, secondary == self.secondary, tertiary == self.tertiary {
             return self
         }
-        return UsageSnapshot(
-            primary: primary,
-            secondary: secondary,
-            tertiary: tertiary,
-            extraRateWindows: self.extraRateWindows,
-            kiroUsage: self.kiroUsage,
-            ampUsage: self.ampUsage,
-            providerCost: self.providerCost,
-            zaiUsage: self.zaiUsage,
-            minimaxUsage: self.minimaxUsage,
-            deepseekUsage: self.deepseekUsage,
-            mimoUsage: self.mimoUsage,
-            openRouterUsage: self.openRouterUsage,
-            openAIAPIUsage: self.openAIAPIUsage,
-            claudeAdminAPIUsage: self.claudeAdminAPIUsage,
-            mistralUsage: self.mistralUsage,
-            deepgramUsage: self.deepgramUsage,
-            cursorRequests: self.cursorRequests,
-            subscriptionExpiresAt: self.subscriptionExpiresAt,
-            subscriptionRenewsAt: self.subscriptionRenewsAt,
-            updatedAt: self.updatedAt,
-            identity: self.identity)
+        return self.replacing(
+            primary: .value(primary),
+            secondary: .value(secondary),
+            tertiary: .value(tertiary))
     }
 
     private func orderedPerplexityFallbackWindows() -> [RateWindow] {
@@ -461,6 +412,50 @@ public struct UsageSnapshot: Codable, Sendable {
             return lhsEmail == rhsEmail
         }
         return true
+    }
+
+    private enum Replacement<Value> {
+        case unchanged
+        case value(Value)
+
+        func resolving(_ current: Value) -> Value {
+            switch self {
+            case .unchanged: current
+            case let .value(value): value
+            }
+        }
+    }
+
+    private func replacing(
+        primary: Replacement<RateWindow?> = .unchanged,
+        secondary: Replacement<RateWindow?> = .unchanged,
+        tertiary: Replacement<RateWindow?> = .unchanged,
+        extraRateWindows: Replacement<[NamedRateWindow]?> = .unchanged,
+        identity: Replacement<ProviderIdentitySnapshot?> = .unchanged) -> UsageSnapshot
+    {
+        UsageSnapshot(
+            primary: primary.resolving(self.primary),
+            secondary: secondary.resolving(self.secondary),
+            tertiary: tertiary.resolving(self.tertiary),
+            extraRateWindows: extraRateWindows.resolving(self.extraRateWindows),
+            kiroUsage: self.kiroUsage,
+            ampUsage: self.ampUsage,
+            providerCost: self.providerCost,
+            zaiUsage: self.zaiUsage,
+            minimaxUsage: self.minimaxUsage,
+            deepseekUsage: self.deepseekUsage,
+            mimoUsage: self.mimoUsage,
+            openRouterUsage: self.openRouterUsage,
+            openAIAPIUsage: self.openAIAPIUsage,
+            claudeAdminAPIUsage: self.claudeAdminAPIUsage,
+            mistralUsage: self.mistralUsage,
+            deepgramUsage: self.deepgramUsage,
+            poeUsage: self.poeUsage,
+            cursorRequests: self.cursorRequests,
+            subscriptionExpiresAt: self.subscriptionExpiresAt,
+            subscriptionRenewsAt: self.subscriptionRenewsAt,
+            updatedAt: self.updatedAt,
+            identity: identity.resolving(self.identity))
     }
 }
 
@@ -923,12 +918,14 @@ public struct UsageFetcher: Sendable {
     private let initializeTimeoutSeconds: TimeInterval
     private let requestTimeoutSeconds: TimeInterval
     private let codexExecutableResolver: CodexExecutableResolver
+    private let codexArguments: [String]
 
     public init(environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.environment = environment
         self.initializeTimeoutSeconds = 8.0
         self.requestTimeoutSeconds = 3.0
         self.codexExecutableResolver = defaultCodexExecutableResolver
+        self.codexArguments = ["-s", "read-only", "-a", "untrusted", "app-server"]
         LoginShellPathCache.shared.captureOnce()
     }
 
@@ -936,12 +933,14 @@ public struct UsageFetcher: Sendable {
         environment: [String: String],
         initializeTimeoutSeconds: TimeInterval,
         requestTimeoutSeconds: TimeInterval,
+        codexArguments: [String] = ["-s", "read-only", "-a", "untrusted", "app-server"],
         codexExecutableResolver: @escaping CodexExecutableResolver = defaultCodexExecutableResolver)
     {
         self.environment = environment
         self.initializeTimeoutSeconds = initializeTimeoutSeconds
         self.requestTimeoutSeconds = requestTimeoutSeconds
         self.codexExecutableResolver = codexExecutableResolver
+        self.codexArguments = codexArguments
         LoginShellPathCache.shared.captureOnce()
     }
 
@@ -955,6 +954,7 @@ public struct UsageFetcher: Sendable {
 
     public func loadLatestCLIAccountSnapshot() async throws -> CodexCLIAccountSnapshot {
         let rpc = try CodexRPCClient(
+            arguments: self.codexArguments,
             environment: self.environment,
             initializeTimeoutSeconds: self.initializeTimeoutSeconds,
             requestTimeoutSeconds: self.requestTimeoutSeconds,
@@ -1014,6 +1014,7 @@ public struct UsageFetcher: Sendable {
     public func debugRawRateLimits() async -> String {
         do {
             let rpc = try CodexRPCClient(
+                arguments: self.codexArguments,
                 environment: self.environment,
                 initializeTimeoutSeconds: self.initializeTimeoutSeconds,
                 requestTimeoutSeconds: self.requestTimeoutSeconds,

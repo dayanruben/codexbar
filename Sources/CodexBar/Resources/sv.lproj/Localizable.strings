@@ -410,6 +410,9 @@
 "language_japanese" = "Japanska";
 "language_korean" = "Koreanska";
 "language_turkish" = "Türkçe";
+"language_italian" = "Italiano";
+"language_indonesian" = "Indonesiska";
+"language_polish" = "Polski";
 "start_at_login_title" = "Starta vid inloggning";
 "start_at_login_subtitle" = "Öppnar CodexBar automatiskt när du startar din Mac.";
 "show_cost_summary" = "Visa kostnadssammanfattning";
@@ -1072,3 +1075,6 @@
 "Search providers" = "Sök leverantörer";
 
 "language_vietnamese" = "Vietnamesiska";
+"language_arabic" = "العربية";
+"language_persian" = "فارسی";
+"language_thai" = "ไทย";

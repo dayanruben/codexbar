@@ -408,8 +408,11 @@
 "language_ukrainian" = "Українська";
 "language_japanese" = "Японська";
 "language_korean" = "Корейська";
+"language_italian" = "Italiano";
 "language_vietnamese" = "В'єтнамська";
 "language_turkish" = "Türkçe";
+"language_indonesian" = "Індонезійська";
+"language_polish" = "Польська";
 "start_at_login_title" = "Почніть із входу";
 "start_at_login_subtitle" = "Автоматично відкриває CodexBar під час запуску Mac.";
 "show_cost_summary" = "Показати підсумок витрат";
@@ -1073,3 +1076,6 @@
 "Clear" = "ясно";
 "No matching providers" = "Немає відповідних постачальників";
 "Search providers" = "Пошук провайдерів";
+"language_arabic" = "العربية";
+"language_persian" = "فارسی";
+"language_thai" = "ไทย";

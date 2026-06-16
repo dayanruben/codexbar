@@ -408,6 +408,7 @@
 "language_ukrainian" = "Tiếng Ukraina";
 "language_japanese" = "Tiếng Nhật";
 "language_korean" = "Tiếng Hàn";
+"language_italian" = "Italiano";
 "start_at_login_title" = "Bắt đầu khi đăng nhập";
 "start_at_login_subtitle" = "Tự động mở CodexBar khi bạn khởi động máy Mac.";
 "show_cost_summary" = "Hiển thị tóm tắt chi phí";
@@ -1074,3 +1075,8 @@
 
 "language_vietnamese" = "Tiếng Việt";
 "language_turkish" = "Türkçe";
+"language_indonesian" = "Tiếng Indonesia";
+"language_polish" = "Tiếng Ba Lan";
+"language_arabic" = "العربية";
+"language_persian" = "فارسی";
+"language_thai" = "ไทย";
