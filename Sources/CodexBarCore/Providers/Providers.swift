@@ -36,6 +36,7 @@ public enum UsageProvider: String, CaseIterable, Sendable, Codable {
     case openrouter
     case elevenlabs
     case windsurf
+    case zed
     case perplexity
     case mimo
     case doubao
@@ -54,6 +55,7 @@ public enum UsageProvider: String, CaseIterable, Sendable, Codable {
     case litellm
     case deepgram
     case poe
+    case chutes
 }
 
 // swiftformat:enable sortDeclarations
@@ -90,6 +92,7 @@ public enum IconStyle: String, Sendable, CaseIterable {
     case openrouter
     case elevenlabs
     case windsurf
+    case zed
     case perplexity
     case mimo
     case doubao
@@ -108,6 +111,7 @@ public enum IconStyle: String, Sendable, CaseIterable {
     case litellm
     case deepgram
     case poe
+    case chutes
     case combined
 }
 
