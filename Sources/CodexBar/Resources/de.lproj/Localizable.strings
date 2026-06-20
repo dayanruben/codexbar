@@ -628,6 +628,8 @@
 "metric_pref_tertiary" = "Tertiär";
 "metric_pref_extra_usage" = "Zusätzliche Nutzung";
 "metric_pref_average" = "Durchschnitt";
+"metric_mistral_payg" = "Pay-as-you-go";
+"metric_mistral_monthly_plan" = "Monthly Plan";
 
 /* Display modes */
 "display_mode_percent" = "Prozent";
@@ -808,6 +810,7 @@
 "API spend" = "API-Ausgaben";
 "Extra usage" = "Zusätzliche Nutzung";
 "Quota usage" = "Kontingentnutzung";
+"Your spend" = "Deine Ausgaben";
 "%.0f%% used" = "%.0f%% verwendet";
 "Usage history (today)" = "Nutzungshistorie (heute)";
 "Usage history (%d days)" = "Nutzungsverlauf (%d Tage)";
@@ -972,6 +975,9 @@
 "Day" = "Tag";
 "Deployment" = "Einsatz";
 "Drag to reorder" = "Zum Neuanordnen ziehen";
+"Sort providers alphabetically" = "Anbieter alphabetisch sortieren";
+"Sort providers alphabetically (enabled first)" = "Anbieter alphabetisch sortieren (aktivierte zuerst)";
+"Sorted alphabetically (enabled first) — click to use your custom order" = "Alphabetisch sortiert (aktivierte zuerst) — klicken, um die eigene Reihenfolge zu verwenden";
 "Endpoint" = "Endpunkt";
 "Enterprise host" = "Unternehmenshost";
 "Extra usage balance: %@" = "Zusätzlicher Nutzungssaldo: %@";
@@ -1084,3 +1090,18 @@
 "language_arabic" = "العربية";
 "language_persian" = "فارسی";
 "language_thai" = "ไทย";
+"Limit Reset Credits" = "Credits zum Zurücksetzen des Limits";
+"1 manual reset available" = "1 manuelle Zurücksetzung verfügbar";
+"%d manual resets available" = "%d manuelle Zurücksetzungen verfügbar";
+"Next expires %@" = "Nächster Ablauf %@";
+"Other (%d items)" = "Andere (%d Elemente)";
+"Expand" = "Aufklappen";
+"Collapse" = "Zuklappen";
+"byte_unit_byte" = "Byte";
+"byte_unit_bytes" = "Byte";
+"byte_unit_kilobyte" = "Kilobyte";
+"byte_unit_kilobytes" = "Kilobyte";
+"byte_unit_megabyte" = "Megabyte";
+"byte_unit_megabytes" = "Megabyte";
+"byte_unit_gigabyte" = "Gigabyte";
+"byte_unit_gigabytes" = "Gigabyte";
