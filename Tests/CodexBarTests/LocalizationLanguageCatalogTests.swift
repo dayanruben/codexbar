@@ -16,6 +16,7 @@ struct LocalizationLanguageCatalogTests {
         "language_french",
         "language_dutch",
         "language_ukrainian",
+        "language_russian",
         "language_italian",
         "language_vietnamese",
         "language_japanese",
@@ -26,12 +27,19 @@ struct LocalizationLanguageCatalogTests {
         "language_arabic",
         "language_persian",
         "language_thai",
+        "language_galician",
     ]
 
     @Test
     func `app language catalog includes Ukrainian`() {
         #expect(AppLanguage.allCases.contains(.ukrainian))
         #expect(AppLanguage.ukrainian.rawValue == "uk")
+    }
+
+    @Test
+    func `app language catalog includes Russian`() {
+        #expect(AppLanguage.allCases.contains(.russian))
+        #expect(AppLanguage.russian.rawValue == "ru")
     }
 
     @Test
@@ -72,6 +80,12 @@ struct LocalizationLanguageCatalogTests {
     }
 
     @Test
+    func `app language catalog includes Galician`() {
+        #expect(AppLanguage.allCases.contains(.galician))
+        #expect(AppLanguage.galician.rawValue == "gl")
+    }
+
+    @Test
     func `new language bundles include representative native labels`() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -97,6 +111,19 @@ struct LocalizationLanguageCatalogTests {
                 "quit_app": "ออกจาก CodexBar",
                 "usage_percent_suffix_left": "คงเหลือ",
             ],
+            "ru": [
+                "language_russian": "Русский",
+                "tab_general": "Общие",
+                "quit_app": "Выйти из CodexBar",
+                "usage_percent_suffix_left": "осталось",
+            ],
+            "gl": [
+                "language_galician": "Galego",
+                "tab_general": "Xeral",
+                "quit_app": "Saír de CodexBar",
+                "terminal_app_title": "Terminal predeterminado",
+                "terminal_app_subtitle": "Terminal usado pola acción Abrir terminal",
+            ],
         ]
 
         for (locale, expectedValues) in expectations {
@@ -106,6 +133,21 @@ struct LocalizationLanguageCatalogTests {
                 #expect(catalog[key] == expectedValue, "\(locale).\(key)")
             }
         }
+    }
+
+    @Test
+    func `galician localization matches the English catalog`() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let resourcesURL = root.appendingPathComponent("Sources/CodexBar/Resources")
+        let englishURL = resourcesURL.appendingPathComponent("en.lproj/Localizable.strings")
+        let galicianURL = resourcesURL.appendingPathComponent("gl.lproj/Localizable.strings")
+        let english = try #require(NSDictionary(contentsOf: englishURL) as? [String: String])
+        let galician = try #require(NSDictionary(contentsOf: galicianURL) as? [String: String])
+
+        #expect(Set(galician.keys) == Set(english.keys))
     }
 
     @Test
@@ -303,8 +345,10 @@ struct LocalizationLanguageCatalogTests {
             "byte_unit_kilobyte",
             "byte_unit_megabyte",
             "language_arabic",
+            "language_galician",
             "language_italian",
             "language_persian",
+            "language_russian",
             "language_thai",
             "link_email",
             "link_github",
