@@ -17,6 +17,9 @@ extension UsageStore {
         _ = self.accountSnapshots
         _ = self.codexAccountSnapshots
         _ = self.kiloScopeSnapshots
+        _ = self.claudeSwapAccountSnapshots
+        _ = self.claudeSwapLastError
+        _ = self.claudeSwapRevision
         _ = self.tokenSnapshots
         _ = self.tokenErrors
         _ = self.tokenRefreshInFlight
@@ -144,6 +147,13 @@ final class UsageStore {
     var accountSnapshots: [UsageProvider: [TokenAccountUsageSnapshot]] = [:]
     var codexAccountSnapshots: [CodexAccountUsageSnapshot] = []
     var kiloScopeSnapshots: [KiloScopeSnapshot] = []
+    var claudeSwapAccountSnapshots: [ProviderAccountUsageSnapshot] = []
+    var claudeSwapLastRefreshAt: Date?
+    var claudeSwapLastError: String?
+    var claudeSwapDetectedVersion: String?
+    var claudeSwapRevision: UInt64 = 0
+    @ObservationIgnored var claudeSwapRefreshTask: Task<Void, Never>?
+    @ObservationIgnored var claudeSwapTransientState = ClaudeSwapTransientState()
     var tokenSnapshots: [UsageProvider: CostUsageTokenSnapshot] = [:]
     var tokenErrors: [UsageProvider: String] = [:]
     var tokenRefreshInFlight: Set<UsageProvider> = []
@@ -282,7 +292,7 @@ final class UsageStore {
     @ObservationIgnored private var hasCompletedInitialRefresh: Bool = false
     @ObservationIgnored private let providerAvailabilityCacheTTL: TimeInterval = 1
     @ObservationIgnored let accountInfoCacheTTL: TimeInterval = 30
-    @ObservationIgnored private let tokenFetchTTL: TimeInterval = 60 * 60
+    @ObservationIgnored let tokenFetchTTL: TimeInterval = 60 * 60
     @ObservationIgnored private let tokenFetchTimeout: TimeInterval = 10 * 60
     @ObservationIgnored let startupBehavior: StartupBehavior
     @ObservationIgnored let planUtilizationPersistenceCoordinator: PlanUtilizationHistoryPersistenceCoordinator

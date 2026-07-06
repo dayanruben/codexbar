@@ -41,6 +41,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     private(set) static var menuRefreshEnabled = !SettingsStore.isRunningTests
     static let quotaWarningFlashDuration: TimeInterval = 60
     private nonisolated static let statusItemAccessibilityTitle = "CodexBar"
+    private nonisolated static let debugStatusItemAccessibilityTitle = "CodexBar Debug"
     private nonisolated static let statusItemAccessibilityIdentifierPrefix = "CodexBar.StatusItem"
     private nonisolated static let mergedLegacyDefaultItemIndex = 0
 
@@ -65,6 +66,14 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
                 "\(StatusItemController.statusItemAccessibilityIdentifierPrefix).\(provider.rawValue)"
             }
         }
+    }
+
+    nonisolated static func isDebugApp(bundleIdentifier: String?) -> Bool {
+        bundleIdentifier?.contains(".debug") == true
+    }
+
+    nonisolated static func statusItemAccessibilityTitle(isDebugApp: Bool) -> String {
+        isDebugApp ? self.debugStatusItemAccessibilityTitle : self.statusItemAccessibilityTitle
     }
 
     #if DEBUG
@@ -138,8 +147,10 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     var fallbackMenu: NSMenu?
     var openMenus: [ObjectIdentifier: NSMenu] = [:]
     var menuRefreshTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
-    var manualRefreshTask: Task<Void, Never>?
-    var manualRefreshProvider: UsageProvider?
+    /// Manual refreshes tracked per scope so refreshing one provider neither greys out nor blocks
+    /// a manual refresh of another. `.global` covers the all-providers refresh (⌘R / merged overview).
+    var manualRefreshTasks: [ManualRefreshScope: Task<Void, Never>] = [:]
+
     var closedMenuRebuildTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
     var closedMenuRebuildRequests = MenuRebuildRequestRegistry<ObjectIdentifier>()
     var openMenuRebuildTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
@@ -290,11 +301,13 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         let item = statusBar.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = identity.autosaveName
         if let button = item.button {
+            let title = self.statusItemAccessibilityTitle(
+                isDebugApp: self.isDebugApp(bundleIdentifier: Bundle.main.bundleIdentifier))
             // Ensure the icon is rendered at 1:1 without resampling (crisper edges for template images).
             button.imageScaling = .scaleNone
             button.setAccessibilityIdentifier(identity.accessibilityIdentifier)
-            button.setAccessibilityTitle(self.statusItemAccessibilityTitle)
-            button.toolTip = self.statusItemAccessibilityTitle
+            button.setAccessibilityTitle(title)
+            button.toolTip = title
         }
         return item
     }
