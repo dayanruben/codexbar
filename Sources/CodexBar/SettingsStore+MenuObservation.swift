@@ -12,6 +12,7 @@ extension SettingsStore {
         _ = self.statusChecksEnabled
         _ = self.sessionQuotaNotificationsEnabled
         _ = self.quotaWarningNotificationsEnabled
+        _ = self.predictivePaceWarningNotificationsEnabled
         _ = self.quotaWarningThresholds
         _ = self.quotaWarningThresholds(.session)
         _ = self.quotaWarningThresholds(.weekly)
@@ -47,6 +48,7 @@ extension SettingsStore {
         _ = self.claudeWebExtrasEnabled
         _ = self.copilotBudgetExtrasEnabled
         _ = self.showOptionalCreditsAndExtraUsage
+        _ = self.codexSparkUsageVisible
         _ = self.openAIWebAccessEnabled
         _ = self.openAIWebBatterySaverEnabled
         _ = self.providerStorageFootprintsEnabled
