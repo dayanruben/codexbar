@@ -660,6 +660,8 @@
 "display_mode_pace_desc" = "Mostrar el indicador de ritmo (p. ej. +5 %)";
 "display_mode_both_desc" = "Mostrar porcentaje y ritmo (p. ej. 45 % · +5 %)";
 "display_mode_reset_time_desc" = "Mostrar el tiempo de restablecimiento de la métrica seleccionada (p. ej. ↻ 3:56 PM)";
+"menu_bar_reset_when_exhausted_title" = "Mostrar la hora de restablecimiento cuando se agote la cuota";
+"menu_bar_reset_when_exhausted_subtitle" = "Con un 0% restante, muestra el tiempo hasta el restablecimiento en lugar del porcentaje";
 
 /* Provider status */
 "status_operational" = "Operativo";
@@ -1018,3 +1020,4 @@
 "section_links" = "Enlaces";
 "Show Codex Spark usage" = "Mostrar el uso de Codex Spark";
 "Shows Codex Spark quota rows in the menu and provider preview. Requires optional credits and extra usage in Display settings." = "Muestra las filas de cuota de Codex Spark en el menú y en la vista previa del proveedor. Requiere activar «Mostrar créditos + uso adicional» en los ajustes de Pantalla.";
+"Scroll to see more models" = "Desplázate para ver más modelos";

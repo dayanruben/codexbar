@@ -668,6 +668,8 @@
 "display_mode_pace_desc" = "نمایش شاخص سرعت (مثلا +5%)";
 "display_mode_both_desc" = "هم درصد و هم سرعت را نشان دهید (مثلا 45% · +5%)";
 "display_mode_reset_time_desc" = "زمان بازنشانی متریک انتخاب شده را نشان دهید (مثلا ↻ ساعت ۳:۵۶ بعدازظهر)";
+"menu_bar_reset_when_exhausted_title" = "نمایش زمان بازنشانی هنگام اتمام سهمیه";
+"menu_bar_reset_when_exhausted_subtitle" = "در ۰٪ باقی‌مانده، به‌جای درصد، زمان تا بازنشانی نمایش داده می‌شود";
 
 /* Provider status */
 "status_operational" = "عملیاتی";
@@ -1164,3 +1166,4 @@
 "section_links" = "پیوندها";
 "Show Codex Spark usage" = "نمایش استفاده از Codex Spark";
 "Shows Codex Spark quota rows in the menu and provider preview. Requires optional credits and extra usage in Display settings." = "ردیف‌های سهمیه Codex Spark را در منو و پیش‌نمایش ارائه‌دهنده نمایش می‌دهد. لازم است «نمایش اعتبارها + استفاده اضافی» در تنظیمات نمایش فعال باشد.";
+"Scroll to see more models" = "برای دیدن مدل‌های بیشتر پیمایش کنید";

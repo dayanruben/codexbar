@@ -652,6 +652,8 @@
 "display_mode_pace_desc" = "Mostreu l'indicador de ritme (p. ex. +5%)";
 "display_mode_both_desc" = "Mostreu el percentatge i el ritme (p. ex. 45% · +5%)";
 "display_mode_reset_time_desc" = "Mostreu l'hora de reinici de la mètrica seleccionada (p. ex. ↻ 3:56 PM)";
+"menu_bar_reset_when_exhausted_title" = "Mostra l'hora de restabliment quan s'esgoti la quota";
+"menu_bar_reset_when_exhausted_subtitle" = "Amb un 0% restant, mostra el temps fins al restabliment en lloc del percentatge";
 
 /* Provider status */
 "status_operational" = "Operatiu";
@@ -1163,3 +1165,4 @@
 "section_links" = "Enllaços";
 "Show Codex Spark usage" = "Mostreu l'ús de Codex Spark";
 "Shows Codex Spark quota rows in the menu and provider preview. Requires optional credits and extra usage in Display settings." = "Mostreu les files de quota de Codex Spark al menú i a la previsualització del proveïdor. Cal activar «Mostreu crèdits + ús addicional» a la configuració de Pantalla.";
+"Scroll to see more models" = "Desplaceu-vos per veure més models";

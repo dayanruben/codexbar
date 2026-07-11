@@ -667,6 +667,8 @@
 "display_mode_pace_desc" = "Toon tempo-indicator (bijv. +5%)";
 "display_mode_both_desc" = "Toon zowel percentage als tempo (bijvoorbeeld 45% · +5%)";
 "display_mode_reset_time_desc" = "Toon de resettijd voor de geselecteerde metriek (bijvoorbeeld ↻ 15:56)";
+"menu_bar_reset_when_exhausted_title" = "Toon resettijd wanneer het quotum op is";
+"menu_bar_reset_when_exhausted_subtitle" = "Bij 0% resterend wordt de tijd tot de reset getoond in plaats van het percentage";
 
 /* Provider status */
 "status_operational" = "Operationeel";
@@ -1157,3 +1159,4 @@
 "section_links" = "Links";
 "Show Codex Spark usage" = "Codex Spark-gebruik tonen";
 "Shows Codex Spark quota rows in the menu and provider preview. Requires optional credits and extra usage in Display settings." = "Toont Codex Spark-quotumregels in het menu en de voorvertoning van de provider. Vereist dat ‘Toon credits + extra gebruik’ is ingeschakeld in de instellingen voor Weergave.";
+"Scroll to see more models" = "Scroll om meer modellen te bekijken";

@@ -1127,6 +1127,8 @@
 "Request quota: %@ / %@" = "İstek kotası: %@ / %@";
 "display_mode_reset_time" = "Sıfırlama zamanı";
 "display_mode_reset_time_desc" = "Seçilen metrik için sıfırlama zamanını göster (örn. ↻ 15:56)";
+"menu_bar_reset_when_exhausted_title" = "Kota bittiğinde sıfırlama zamanını göster";
+"menu_bar_reset_when_exhausted_subtitle" = "%0 kaldığında yüzde yerine sıfırlamaya kalan süreyi gösterir";
 "terminal_app_title" = "Varsayılan Terminal";
 "terminal_app_subtitle" = "Terminali Aç eyleminde kullanılan terminal";
 "language_arabic" = "العربية";
@@ -1161,3 +1163,4 @@
 "section_links" = "Bağlantılar";
 "Show Codex Spark usage" = "Codex Spark kullanımını göster";
 "Shows Codex Spark quota rows in the menu and provider preview. Requires optional credits and extra usage in Display settings." = "Codex Spark kota satırlarını menüde ve sağlayıcı önizlemesinde gösterir. Görünüm ayarlarında “Krediler + ekstra kullanımı göster” seçeneğinin etkin olmasını gerektirir.";
+"Scroll to see more models" = "Daha fazla model görmek için kaydırın";
