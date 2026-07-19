@@ -466,7 +466,7 @@
 "cost_history_window_title" = "歷史時段";
 "cost_history_window_help" = "設定選單中顯示多少天的本機使用記錄。";
 "cost_history_days_title" = "歷史時段：%d 天";
-"cost_auto_refresh_info" = "自動重新整理：每小時 · 逾時：10 分鐘";
+"cost_auto_refresh_info" = "自動重新整理：全域間隔（最短 5 分鐘）· 逾時：10 分鐘";
 "cost_comparison_periods_title" = "顯示較短的比較期間";
 "cost_comparison_periods_subtitle" = "當 7 天、30 天和 90 天落在所選歷史時段內時，加入相應總計。這些總計會重複使用同一次本機掃描。";
 "refresh_interval_title" = "重新整理間隔";
@@ -598,6 +598,12 @@
 "agent_sessions_subtitle" = "在選單中顯示本機及透過 SSH 發現的 Codex 和 Claude Code 工作階段。";
 "agent_sessions_hosts_title" = "其他 SSH 主機";
 "agent_sessions_footer" = "系統會自動發現 tailnet 上的 Mac。本機工作階段每 30 秒重新整理一次；遠端主機每 60 秒以及開啟選單時重新整理。";
+"agent_session_labels_title" = "工作階段標籤";
+"agent_session_labels_subtitle" = "選擇 Agent 工作階段的命名方式。";
+"agent_session_label_project" = "專案";
+"agent_session_label_descriptive" = "描述性";
+"agent_session_label_descriptive_and_project" = "描述性 + 專案";
+"agent_session_unknown_project" = "未知專案";
 "section_keyboard_shortcut" = "快速鍵";
 "open_menu_shortcut_title" = "開啟選單";
 "open_menu_shortcut_subtitle" = "從任意位置觸發選單列選單。";
@@ -725,11 +731,9 @@
 "Dismiss" = "關閉";
 "Open Menu Bar Settings" = "開啟選單列設定";
 "macOS Tahoe can block menu bar apps in System Settings → Menu Bar → Allow in the Menu Bar. CodexBar is running, but macOS may be hiding its icon. Open Menu Bar settings and turn CodexBar on." = "macOS Tahoe 可能會在「系統設定」→「選單列」→「允許顯示在選單列」中封鎖選單列 App。CodexBar 正在執行，但 macOS 可能隱藏了它的圖示。請開啟選單列設定並啟用 CodexBar。";
-"cost_header_estimated" = "費用（估算）";
 "cost_estimate_hint" = "根據本機記錄估算 · 可能與帳單不同";
-"codex_api_estimate_header" = "API 等值估算";
-"codex_api_estimate_hint" = "本機用量 × 公開 API 價格 · 不是訂閱帳單或方案價值";
-"codex_api_estimate_not_billed" = "不是訂閱帳單或方案價值";
+"codex_api_estimate_hint" = "根據 Token 用量估算 · 不是訂閱帳單";
+"cost_data_explanation" = "費用可能由供應商回報，也可能根據 Token 用量按公開 API 價格估算。估算值不是訂閱費用。";
 "copilot_device_code" = "裝置碼已複製到剪貼簿：%1$@\n\n請到以下網址驗證：%2$@";
 "copilot_waiting_text" = "請在瀏覽器中完成登入。\n登入完成後，此視窗會自動關閉。";
 "vertex_ai_login_instructions" = "要追蹤 Vertex AI 使用量，請透過 Google Cloud 進行認證。\n\n1. 開啟終端\n2. 執行：gcloud auth application-default login\n3. 依照瀏覽器提示登入\n4. 設定你的專案：gcloud config set project PROJECT_ID\n\n要現在開啟終端嗎？";
@@ -811,6 +815,7 @@
 "Today" = "今天";
 "Today tokens" = "今日 token";
 "30d cost" = "近 30 天費用";
+"%@ cost" = "%@費用";
 "30d tokens" = "近 30 天 token";
 "Latest tokens" = "最新 token";
 "Top model" = "主要模型";
@@ -1294,6 +1299,10 @@
 "By subscription" = "依訂閱";
 "No model-level history" = "尚無模型層級歷史";
 "Daily estimated spend" = "每日預估支出";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "每週額度約剩 %d 個完整 5 小時視窗 · 距重置還有 %d 個視窗";
+"Weekly cannot run out before reset at this pace" = "依此速度，每週額度無法在重置前用完";
+"Weekly can run out ≈%d windows early" = "每週額度可能提前約 %d 個視窗用完";
+"Estimated: %@" = "預估：%@";
 "Coding Plan" = "程式設計方案";
 "Agent Plan" = "智慧體方案";
 "Team" = "團隊";

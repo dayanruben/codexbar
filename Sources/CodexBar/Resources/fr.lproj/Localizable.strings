@@ -461,7 +461,7 @@
 "cost_history_window_title" = "Fenêtre d'historique";
 "cost_history_window_help" = "Définit le nombre de jours de journaux d'utilisation locaux affichés dans le menu.";
 "cost_history_days_title" = "Fenêtre d'historique : %d jours";
-"cost_auto_refresh_info" = "Actualisation automatique : toutes les heures · Délai d'expiration : 10 min";
+"cost_auto_refresh_info" = "Actualisation automatique : intervalle global (minimum 5 min) · Délai d'expiration : 10 min";
 "cost_comparison_periods_title" = "Afficher des périodes de comparaison plus courtes";
 "cost_comparison_periods_subtitle" = "Ajoute les totaux sur 7, 30 et 90 jours lorsqu'ils tiennent dans la période d'historique sélectionnée. Ces totaux réutilisent la même analyse locale.";
 "refresh_interval_title" = "Intervalle d’actualisation";
@@ -599,6 +599,12 @@
 "agent_sessions_subtitle" = "Afficher dans le menu les sessions Codex et Claude Code locales et découvertes via SSH.";
 "agent_sessions_hosts_title" = "Hôtes SSH supplémentaires";
 "agent_sessions_footer" = "Les Mac de votre tailnet sont découverts automatiquement. Les sessions locales s’actualisent toutes les 30 secondes ; les hôtes distants toutes les 60 secondes et à l’ouverture du menu.";
+"agent_session_labels_title" = "Libellés des sessions";
+"agent_session_labels_subtitle" = "Choisissez comment nommer les sessions d’agents.";
+"agent_session_label_project" = "Projet";
+"agent_session_label_descriptive" = "Descriptif";
+"agent_session_label_descriptive_and_project" = "Descriptif + projet";
+"agent_session_unknown_project" = "Projet inconnu";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Raccourci clavier";
@@ -740,11 +746,9 @@
 "not_found" = "Pas trouvé";
 
 /* Cost estimation */
-"cost_header_estimated" = "Coût (estimé)";
 "cost_estimate_hint" = "Estimé à partir des journaux locaux · peut différer de votre facture";
-"codex_api_estimate_header" = "Estimation équivalente à l’API";
-"codex_api_estimate_hint" = "Utilisation locale × tarifs API publics · ce n’est ni une facture d’abonnement ni la valeur d’un forfait";
-"codex_api_estimate_not_billed" = "ce n’est ni une facture d’abonnement ni la valeur d’un forfait";
+"codex_api_estimate_hint" = "Estimé à partir de l’utilisation des jetons · pas une facture d’abonnement";
+"cost_data_explanation" = "Les coûts peuvent être déclarés par le fournisseur ou estimés à partir de l’utilisation des jetons aux tarifs publics de l’API. Les estimations ne sont pas des frais d’abonnement.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "Aucun IDE JetBrains avec AI Assistant détecté. Installez un IDE JetBrains et activez AI Assistant.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "Jeton API OpenRouter non configuré. Définissez la variable d'environnement OPENROUTER_API_KEY ou configurez-la dans Paramètres.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "Jeton API z.ai introuvable. Définissez apiKey dans ~/.codexbar/config.json ou Z_AI_API_KEY.";
@@ -774,6 +778,7 @@
 "Today" = "Aujourd’hui";
 "Today tokens" = "Jetons d'aujourd'hui";
 "30d cost" = "coût 30 jours";
+"%@ cost" = "coût %@";
 "30d tokens" = "jetons 30d";
 "Latest tokens" = "Derniers jetons";
 "Top model" = "Top modèle";
@@ -1263,6 +1268,10 @@
 "By subscription" = "Par abonnement";
 "No model-level history" = "Aucun historique au niveau des modèles";
 "Daily estimated spend" = "Dépenses quotidiennes estimées";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "≈%d fenêtres complètes de 5 h de quota hebdomadaire · %d fenêtres avant réinitialisation";
+"Weekly cannot run out before reset at this pace" = "Le quota hebdomadaire ne peut pas être épuisé avant la réinitialisation à ce rythme";
+"Weekly can run out ≈%d windows early" = "Le quota hebdomadaire peut être épuisé ≈%d fenêtres plus tôt";
+"Estimated: %@" = "Estimation : %@";
 "Coding Plan" = "Plan de codage";
 "Agent Plan" = "Plan d'agent";
 "Team" = "Équipe";

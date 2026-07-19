@@ -444,7 +444,7 @@
 "cost_history_window_title" = "Finestra d'historial";
 "cost_history_window_help" = "Defineix quants dies de registres d'ús locals apareixen al menú.";
 "cost_history_days_title" = "Finestra d'historial: %d dies";
-"cost_auto_refresh_info" = "Actualització automàtica: cada hora · Temps d'espera: 10 min";
+"cost_auto_refresh_info" = "Actualització automàtica: interval global (mínim 5 min) · Temps d'espera: 10 min";
 "cost_comparison_periods_title" = "Mostra períodes de comparació més curts";
 "cost_comparison_periods_subtitle" = "Afegeix totals de 7, 30 i 90 dies quan càpiguen dins l'interval d'historial seleccionat. Aquests totals reutilitzen la mateixa exploració local.";
 "refresh_interval_title" = "Interval d'actualització";
@@ -583,6 +583,12 @@
 "agent_sessions_subtitle" = "Mostreu al menú les sessions locals i descobertes per SSH de Codex i Claude Code.";
 "agent_sessions_hosts_title" = "Amfitrions SSH addicionals";
 "agent_sessions_footer" = "Els Mac de la vostra tailnet es descobreixen automàticament. Les sessions locals s'actualitzen cada 30 segons; els amfitrions remots, cada 60 segons i quan s'obre el menú.";
+"agent_session_labels_title" = "Etiquetes de sessió";
+"agent_session_labels_subtitle" = "Trieu com s'anomenen les sessions d'agents.";
+"agent_session_label_project" = "Projecte";
+"agent_session_label_descriptive" = "Descriptiva";
+"agent_session_label_descriptive_and_project" = "Descriptiva + projecte";
+"agent_session_unknown_project" = "Projecte desconegut";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Drecera de teclat";
@@ -724,11 +730,9 @@
 "not_found" = "No trobat";
 
 /* Cost estimation */
-"cost_header_estimated" = "Cost (estimat)";
 "cost_estimate_hint" = "Estimat a partir de registres locals · pot diferir de la vostra factura";
-"codex_api_estimate_header" = "Estimació equivalent a l'API";
-"codex_api_estimate_hint" = "Ús local × preus públics de l'API · no és una factura de subscripció ni el valor d'un pla";
-"codex_api_estimate_not_billed" = "no és una factura de subscripció ni el valor d'un pla";
+"codex_api_estimate_hint" = "Estimat a partir de l’ús de tokens · no és una factura de subscripció";
+"cost_data_explanation" = "Els costos poden ser comunicats pel proveïdor o estimats a partir de l’ús de tokens amb preus públics de l’API. Les estimacions no són càrrecs de subscripció.";
 
 /* Popup panels */
 "No usage configured." = "No hi ha cap ús configurat.";
@@ -815,6 +819,7 @@
 "Today" = "Avui";
 "Today tokens" = "Tokens d'avui";
 "30d cost" = "Cost 30 d";
+"%@ cost" = "Cost %@";
 "30d tokens" = "Tokens 30 d";
 "Latest tokens" = "Tokens recents";
 "Top model" = "Model principal";
@@ -1266,6 +1271,10 @@
 "By subscription" = "Per subscripció";
 "No model-level history" = "Sense historial per model";
 "Daily estimated spend" = "Despesa diària estimada";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "≈%d finestres completes de 5 h de quota setmanal · %d finestres fins al reinici";
+"Weekly cannot run out before reset at this pace" = "La quota setmanal no es pot esgotar abans del reinici a aquest ritme";
+"Weekly can run out ≈%d windows early" = "La quota setmanal es pot esgotar ≈%d finestres abans";
+"Estimated: %@" = "Estimació: %@";
 "Coding Plan" = "Pla de programació";
 "Agent Plan" = "Pla d'agent";
 "Team" = "Equip";

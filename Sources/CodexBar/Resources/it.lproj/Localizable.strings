@@ -450,7 +450,7 @@
 "cost_history_days_title" = "Finestra storica: %d giorni";
 "cost_comparison_periods_title" = "Mostra periodi di confronto più brevi";
 "cost_comparison_periods_subtitle" = "Aggiungi i totali di 7, 30 e 90 giorni quando rientrano nell'intervallo di cronologia selezionato. Questi totali riutilizzano la stessa scansione locale.";
-"cost_auto_refresh_info" = "Aggiornamento automatico: ogni ora · Timeout: 10 min";
+"cost_auto_refresh_info" = "Aggiornamento automatico: intervallo globale (minimo 5 min) · Timeout: 10 min";
 "refresh_interval_title" = "Intervallo di aggiornamento";
 "manual_refresh_hint" = "Aggiornamento automatico disattivato; usa il comando Aggiorna nel menu.";
 "refresh_on_open_title" = "Aggiorna all'apertura del menu";
@@ -607,6 +607,12 @@
 "agent_sessions_subtitle" = "Mostra nel menu le sessioni Codex e Claude Code locali e rilevate tramite SSH.";
 "agent_sessions_hosts_title" = "Host SSH aggiuntivi";
 "agent_sessions_footer" = "I Mac sulla tua tailnet vengono rilevati automaticamente. Le sessioni locali si aggiornano ogni 30 secondi; gli host remoti ogni 60 secondi e all'apertura del menu.";
+"agent_session_labels_title" = "Etichette delle sessioni";
+"agent_session_labels_subtitle" = "Scegli come denominare le sessioni degli agenti.";
+"agent_session_label_project" = "Progetto";
+"agent_session_label_descriptive" = "Descrittiva";
+"agent_session_label_descriptive_and_project" = "Descrittiva + progetto";
+"agent_session_unknown_project" = "Progetto sconosciuto";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Scorciatoia tastiera";
@@ -748,11 +754,9 @@
 "not_found" = "Non trovato";
 
 /* Cost estimation */
-"cost_header_estimated" = "Costo (stimato)";
 "cost_estimate_hint" = "Stimato dai log locali · può differire dalla fattura";
-"codex_api_estimate_header" = "Stima equivalente API";
-"codex_api_estimate_hint" = "Utilizzo locale × prezzi API pubblici · non è una fattura di abbonamento né il valore di un piano";
-"codex_api_estimate_not_billed" = "non è una fattura di abbonamento né il valore di un piano";
+"codex_api_estimate_hint" = "Stimato dall’utilizzo dei token · non è una fattura di abbonamento";
+"cost_data_explanation" = "I costi possono essere comunicati dal fornitore o stimati dall’utilizzo dei token ai prezzi API pubblici. Le stime non sono addebiti di abbonamento.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "Nessun IDE JetBrains con AI Assistant rilevato. Installa un IDE JetBrains e abilita AI Assistant.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "Token API OpenRouter non configurato. Imposta la variabile d'ambiente OPENROUTER_API_KEY oppure configuralo nelle Impostazioni.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "Token API z.ai non trovato. Imposta apiKey in ~/.codexbar/config.json o Z_AI_API_KEY.";
@@ -782,6 +786,7 @@
 "Today" = "Oggi";
 "Today tokens" = "Token di oggi";
 "30d cost" = "Costo 30 g";
+"%@ cost" = "Costo %@";
 "30d tokens" = "Token 30 g";
 "Latest tokens" = "Token recenti";
 "Top model" = "Modello principale";
@@ -1267,6 +1272,10 @@
 "By subscription" = "Per abbonamento";
 "No model-level history" = "Nessuna cronologia a livello di modello";
 "Daily estimated spend" = "Spesa giornaliera stimata";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "≈%d finestre complete da 5 h di quota settimanale · %d finestre al reset";
+"Weekly cannot run out before reset at this pace" = "La quota settimanale non può esaurirsi prima del reset a questo ritmo";
+"Weekly can run out ≈%d windows early" = "La quota settimanale può esaurirsi ≈%d finestre prima";
+"Estimated: %@" = "Stima: %@";
 "Coding Plan" = "Piano di codifica";
 "Agent Plan" = "Piano agente";
 "Team" = "Squadra";

@@ -448,7 +448,7 @@
 "cost_history_days_title" = "پنجره تاریخچه: %d روز";
 "cost_comparison_periods_title" = "نمایش دوره‌های مقایسه کوتاه‌تر";
 "cost_comparison_periods_subtitle" = "وقتی در پنجره تاریخچه انتخاب‌شده جا می‌گیرند، مجموع‌های ۷، ۳۰ و ۹۰ روزه را اضافه کنید. این مجموع‌ها از همان اسکن محلی استفاده می‌کنند.";
-"cost_auto_refresh_info" = "تازه سازی خودکار: ساعتی · زمان استراحت: 10m";
+"cost_auto_refresh_info" = "تازه‌سازی خودکار: بازه سراسری (حداقل ۵ دقیقه) · مهلت: ۱۰ دقیقه";
 "refresh_interval_title" = "فاصله تازه‌سازی";
 "manual_refresh_hint" = "تازه سازی خودکار خاموش است؛ از فرمان تازه سازی منو استفاده کنید.";
 "refresh_on_open_title" = "بازخوانی هنگام باز کردن منو";
@@ -605,6 +605,12 @@
 "agent_sessions_subtitle" = "جلسات محلی و جلسات Codex و Claude Code یافته‌شده از طریق SSH را در منو نمایش دهید.";
 "agent_sessions_hosts_title" = "میزبان‌های SSH اضافی";
 "agent_sessions_footer" = "مک‌های موجود در tailnet شما به‌طور خودکار شناسایی می‌شوند. جلسات محلی هر ۳۰ ثانیه و میزبان‌های راه دور هر ۶۰ ثانیه و هنگام باز شدن منو تازه‌سازی می‌شوند.";
+"agent_session_labels_title" = "برچسب‌های جلسه";
+"agent_session_labels_subtitle" = "نحوه نام‌گذاری جلسات عامل را انتخاب کنید.";
+"agent_session_label_project" = "پروژه";
+"agent_session_label_descriptive" = "توصیفی";
+"agent_session_label_descriptive_and_project" = "توصیفی + پروژه";
+"agent_session_unknown_project" = "پروژه ناشناخته";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "میانبر کیبورد";
@@ -746,11 +752,9 @@
 "not_found" = "پیدا نشد";
 
 /* Cost estimation */
-"cost_header_estimated" = "هزینه (تخمینی)";
 "cost_estimate_hint" = "برآورد شده از چوب های محلی · ممکن است با صورتحساب شما متفاوت باشد";
-"codex_api_estimate_header" = "برآورد معادل API";
-"codex_api_estimate_hint" = "استفاده محلی × قیمت‌های عمومی API · نه صورتحساب اشتراک است و نه ارزش طرح";
-"codex_api_estimate_not_billed" = "نه صورتحساب اشتراک است و نه ارزش طرح";
+"codex_api_estimate_hint" = "برآوردشده از مصرف توکن · صورتحساب اشتراک نیست";
+"cost_data_explanation" = "هزینه‌ها ممکن است توسط ارائه‌دهنده گزارش شوند یا بر اساس مصرف توکن و قیمت‌های عمومی API برآورد شوند. برآوردها هزینه اشتراک نیستند.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "هیچ JetBrains IDE ای با AI Assistant شناسایی نشد. یک JetBrains IDE نصب کنید و AI Assistant را فعال کنید.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "OpenRouter API توکن پیکربندی نشده است. متغیر محیطی OPENROUTER_API_KEY تنظیم کنید یا در تنظیمات پیکربندی کنید.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "z.ai API توکن پیدا نشد. apiKey را در ~/.codexbar/config.json یا Z_AI_API_KEY تنظیم کنید.";
@@ -780,6 +784,7 @@
 "Today" = "امروز";
 "Today tokens" = "توکن های امروزی";
 "30d cost" = "هزینه 30d";
+"%@ cost" = "هزینه %@";
 "30d tokens" = "توکن های 30d";
 "Latest tokens" = "جدیدترین توکن ها";
 "Top model" = "مدل برتر";
@@ -1267,6 +1272,10 @@
 "By subscription" = "بر اساس اشتراک";
 "No model-level history" = "تاریخچه‌ای در سطح مدل وجود ندارد";
 "Daily estimated spend" = "برآورد هزینه روزانه";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "حدود %d بازه کامل ۵ ساعته از سهم هفتگی مانده · %d بازه تا بازنشانی";
+"Weekly cannot run out before reset at this pace" = "با این روند، سهم هفتگی پیش از بازنشانی تمام نمی‌شود";
+"Weekly can run out ≈%d windows early" = "سهم هفتگی ممکن است حدود %d بازه زودتر تمام شود";
+"Estimated: %@" = "برآوردی: %@";
 "Coding Plan" = "طرح کدنویسی";
 "Agent Plan" = "طرح عامل";
 "Team" = "تیم";

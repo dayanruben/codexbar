@@ -448,7 +448,7 @@
 "cost_history_days_title" = "Geçmiş penceresi: %d gün";
 "cost_comparison_periods_title" = "Daha kısa karşılaştırma dönemlerini göster";
 "cost_comparison_periods_subtitle" = "Seçilen geçmiş aralığına sığdığında 7, 30 ve 90 günlük toplamları ekler. Bu toplamlar aynı yerel taramayı yeniden kullanır.";
-"cost_auto_refresh_info" = "Otomatik yenileme: saatlik · Zaman aşımı: 10 dk";
+"cost_auto_refresh_info" = "Otomatik yenileme: genel aralık (en az 5 dk) · Zaman aşımı: 10 dk";
 "refresh_interval_title" = "Yenileme aralığı";
 "manual_refresh_hint" = "Otomatik yenileme kapalı; menüdeki Yenile komutunu kullanın.";
 "refresh_on_open_title" = "Menü açıldığında yenile";
@@ -605,6 +605,12 @@
 "agent_sessions_subtitle" = "Menüde yerel ve SSH ile keşfedilen Codex ve Claude Code oturumlarını göster.";
 "agent_sessions_hosts_title" = "Ek SSH sunucuları";
 "agent_sessions_footer" = "Tailnet'inizdeki Mac'ler otomatik olarak keşfedilir. Yerel oturumlar 30 saniyede bir; uzak sunucular 60 saniyede bir ve menü açıldığında yenilenir.";
+"agent_session_labels_title" = "Oturum etiketleri";
+"agent_session_labels_subtitle" = "Ajan oturumlarının nasıl adlandırılacağını seçin.";
+"agent_session_label_project" = "Proje";
+"agent_session_label_descriptive" = "Açıklayıcı";
+"agent_session_label_descriptive_and_project" = "Açıklayıcı + proje";
+"agent_session_unknown_project" = "Bilinmeyen proje";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Klavye kısayolu";
@@ -742,11 +748,9 @@
 "not_found" = "Bulunamadı";
 
 /* Cost estimation */
-"cost_header_estimated" = "Maliyet (tahmini)";
 "cost_estimate_hint" = "Yerel günlüklerden tahmini · faturanızdan farklı olabilir";
-"codex_api_estimate_header" = "API eşdeğeri tahmin";
-"codex_api_estimate_hint" = "Yerel kullanım × herkese açık API fiyatları · abonelik faturası veya plan değeri değildir";
-"codex_api_estimate_not_billed" = "abonelik faturası veya plan değeri değildir";
+"codex_api_estimate_hint" = "Token kullanımından tahmin edilmiştir · abonelik faturası değildir";
+"cost_data_explanation" = "Maliyetler sağlayıcı tarafından bildirilebilir veya herkese açık API fiyatlarıyla token kullanımından tahmin edilebilir. Tahminler abonelik ücreti değildir.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "AI Asistan içeren JetBrains IDE algılanmadı. Bir JetBrains IDE kurun ve AI Asistan'ı etkinleştirin.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "OpenRouter API jetonu yapılandırılmamış. OPENROUTER_API_KEY ortam değişkenini ayarlayın veya Ayarlar'dan yapılandırın.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "z.ai API jetonu bulunamadı. ~/.codexbar/config.json dosyasında apiKey ayarlayın veya Z_AI_API_KEY kullanın.";
@@ -776,6 +780,7 @@
 "Today" = "Bugün";
 "Today tokens" = "Bugünkü jetonlar";
 "30d cost" = "30 günlük maliyet";
+"%@ cost" = "%@ maliyeti";
 "30d tokens" = "30 günlük jetonlar";
 "Latest tokens" = "Son jetonlar";
 "Top model" = "En çok kullanılan model";
@@ -1265,6 +1270,10 @@
 "By subscription" = "Aboneliğe göre";
 "No model-level history" = "Model düzeyinde geçmiş yok";
 "Daily estimated spend" = "Günlük tahmini harcama";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "Haftalık kotadan ≈%d tam 5 saatlik pencere kaldı · sıfırlamaya %d pencere";
+"Weekly cannot run out before reset at this pace" = "Bu hızda haftalık kota sıfırlamadan önce tükenemez";
+"Weekly can run out ≈%d windows early" = "Haftalık kota ≈%d pencere erken tükenebilir";
+"Estimated: %@" = "Tahmini: %@";
 "Coding Plan" = "Kodlama Planı";
 "Agent Plan" = "Ajan Planı";
 "Team" = "Ekip";

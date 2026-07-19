@@ -462,7 +462,7 @@
 "cost_history_window_title" = "Окно истории";
 "cost_history_window_help" = "Задаёт, за сколько дней показывать локальные журналы использования в меню.";
 "cost_history_days_title" = "Окно истории: %d дней";
-"cost_auto_refresh_info" = "Автоматическое обновление: каждый час · Тайм-аут: 10 минут";
+"cost_auto_refresh_info" = "Автоматическое обновление: общий интервал (минимум 5 минут) · Тайм-аут: 10 минут";
 "cost_comparison_periods_title" = "Показывать более короткие периоды сравнения";
 "cost_comparison_periods_subtitle" = "Добавляет итоги за 7, 30 и 90 дней, если они входят в выбранный период истории. Для этих итогов используется то же локальное сканирование.";
 "refresh_interval_title" = "Частота обновления";
@@ -600,6 +600,12 @@
 "agent_sessions_subtitle" = "Показывать в меню локальные и обнаруженные по SSH сеансы Codex и Claude Code.";
 "agent_sessions_hosts_title" = "Дополнительные SSH-хосты";
 "agent_sessions_footer" = "Компьютеры Mac в вашей сети tailnet обнаруживаются автоматически. Локальные сеансы обновляются каждые 30 секунд, удалённые хосты — каждые 60 секунд и при открытии меню.";
+"agent_session_labels_title" = "Названия сеансов";
+"agent_session_labels_subtitle" = "Выберите, как называть сеансы агентов.";
+"agent_session_label_project" = "Проект";
+"agent_session_label_descriptive" = "Описательное";
+"agent_session_label_descriptive_and_project" = "Описательное + проект";
+"agent_session_unknown_project" = "Неизвестный проект";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Сочетание клавиш";
@@ -741,11 +747,9 @@
 "not_found" = "Не найден";
 
 /* Cost estimation */
-"cost_header_estimated" = "Стоимость (оценочная)";
 "cost_estimate_hint" = "Оценка на основе локальных журналов · может отличаться от суммы в счёте.";
-"codex_api_estimate_header" = "Оценка, эквивалентная API";
-"codex_api_estimate_hint" = "Локальное использование × публичные цены API · это не счёт за подписку и не ценность плана";
-"codex_api_estimate_not_billed" = "это не счёт за подписку и не ценность плана";
+"codex_api_estimate_hint" = "Расчёт по использованию токенов · не счёт за подписку";
+"cost_data_explanation" = "Расходы могут быть предоставлены провайдером или рассчитаны по использованию токенов на основе общедоступных цен API. Оценки не являются платой за подписку.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "JetBrains IDE с включённым AI Assistant не обнаружена. Установите JetBrains IDE и включите AI Assistant.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "API-токен OpenRouter не настроен. Задайте переменную окружения OPENROUTER_API_KEY или настройте его в настройках.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "API-токен z.ai не найден. Задайте apiKey в ~/.codexbar/config.json или Z_AI_API_KEY.";
@@ -775,6 +779,7 @@
 "Today" = "Сегодня";
 "Today tokens" = "Токены сегодня";
 "30d cost" = "Стоимость за 30 дн.";
+"%@ cost" = "Стоимость за %@";
 "30d tokens" = "Токены за 30 дн.";
 "Latest tokens" = "Последние токены";
 "Top model" = "Топ-модель";
@@ -1265,6 +1270,10 @@
 "By subscription" = "По подпискам";
 "No model-level history" = "Нет истории по моделям";
 "Daily estimated spend" = "Предполагаемые ежедневные расходы";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "≈%d полных 5-часовых окон недельного лимита · %d окон до сброса";
+"Weekly cannot run out before reset at this pace" = "При таком темпе недельный лимит не может закончиться до сброса";
+"Weekly can run out ≈%d windows early" = "Недельный лимит может закончиться на ≈%d окон раньше";
+"Estimated: %@" = "Оценка: %@";
 "Coding Plan" = "План программирования";
 "Agent Plan" = "План агента";
 "Team" = "Команда";

@@ -457,7 +457,7 @@
 "cost_history_window_title" = "Cửa sổ lịch sử";
 "cost_history_window_help" = "Đặt số ngày nhật ký sử dụng cục bộ xuất hiện trong menu.";
 "cost_history_days_title" = "Cửa sổ lịch sử: %d ngày";
-"cost_auto_refresh_info" = "Tự động làm mới: hàng giờ · Thời gian chờ: 10 phút";
+"cost_auto_refresh_info" = "Tự động làm mới: khoảng thời gian chung (tối thiểu 5 phút) · Thời gian chờ: 10 phút";
 "cost_comparison_periods_title" = "Hiển thị các khoảng so sánh ngắn hơn";
 "cost_comparison_periods_subtitle" = "Thêm tổng 7, 30 và 90 ngày khi nằm trong cửa sổ lịch sử đã chọn. Các tổng này dùng lại cùng một lần quét cục bộ.";
 "refresh_interval_title" = "Khoảng thời gian làm mới";
@@ -595,6 +595,12 @@
 "agent_sessions_subtitle" = "Hiển thị các phiên Codex và Claude Code cục bộ cùng các phiên được phát hiện qua SSH trong menu.";
 "agent_sessions_hosts_title" = "Máy chủ SSH bổ sung";
 "agent_sessions_footer" = "Các máy Mac trên tailnet của bạn được tự động phát hiện. Các phiên cục bộ được làm mới 30 giây một lần; các máy chủ từ xa được làm mới 60 giây một lần và khi menu mở.";
+"agent_session_labels_title" = "Nhãn phiên";
+"agent_session_labels_subtitle" = "Chọn cách đặt tên cho các phiên tác nhân.";
+"agent_session_label_project" = "Dự án";
+"agent_session_label_descriptive" = "Mô tả";
+"agent_session_label_descriptive_and_project" = "Mô tả + dự án";
+"agent_session_unknown_project" = "Dự án không xác định";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Phím tắt";
@@ -736,11 +742,9 @@
 "not_found" = "Không tìm thấy";
 
 /* Cost estimation */
-"cost_header_estimated" = "Chi phí (ước tính)";
 "cost_estimate_hint" = "Ước tính từ nhật ký cục bộ · có thể khác với hóa đơn của bạn";
-"codex_api_estimate_header" = "Ước tính tương đương API";
-"codex_api_estimate_hint" = "Mức dùng cục bộ × giá API công khai · không phải hóa đơn đăng ký hoặc giá trị gói";
-"codex_api_estimate_not_billed" = "không phải hóa đơn đăng ký hoặc giá trị gói";
+"codex_api_estimate_hint" = "Ước tính từ mức sử dụng token · không phải hóa đơn đăng ký";
+"cost_data_explanation" = "Chi phí có thể do nhà cung cấp báo cáo hoặc được ước tính từ mức sử dụng token theo giá API công khai. Các ước tính không phải phí đăng ký.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "Không phát hiện thấy IDE JetBrains nào có Trợ lý AI. Cài đặt JetBrains IDE và bật Trợ lý AI.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "OpenRouter API token chưa được định cấu hình. Đặt biến môi trường OPENROUTER_API_KEY hoặc định cấu hình trong Cài đặt .";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "không tìm thấy z.ai API token. Đặt apiKey trong ~/.codexbar/config.json hoặc Z_AI_API_KEY.";
@@ -770,6 +774,7 @@
 "Today" = "Hôm nay";
 "Today tokens" = "Mã thông báo hôm nay";
 "30d cost" = "giá 30d";
+"%@ cost" = "giá %@";
 "30d tokens" = "mã thông báo 30d";
 "Latest tokens" = "Mã thông báo mới nhất";
 "Top model" = "Mô hình hàng đầu";
@@ -1264,6 +1269,10 @@
 "By subscription" = "Theo gói đăng ký";
 "No model-level history" = "Không có lịch sử theo mô hình";
 "Daily estimated spend" = "Chi tiêu ước tính hằng ngày";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "Còn ≈%d cửa sổ 5 giờ đầy đủ của hạn mức tuần · %d cửa sổ đến khi đặt lại";
+"Weekly cannot run out before reset at this pace" = "Với tốc độ này, hạn mức tuần không thể hết trước khi đặt lại";
+"Weekly can run out ≈%d windows early" = "Hạn mức tuần có thể hết sớm ≈%d cửa sổ";
+"Estimated: %@" = "Ước tính: %@";
 "Coding Plan" = "Gói lập trình";
 "Agent Plan" = "Gói tác nhân";
 "Team" = "Nhóm";

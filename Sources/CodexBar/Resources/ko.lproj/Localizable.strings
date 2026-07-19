@@ -456,7 +456,7 @@
 "cost_history_window_title" = "기록 범위";
 "cost_history_window_help" = "메뉴에 표시할 로컬 사용량 로그 일수를 설정합니다.";
 "cost_history_days_title" = "기록 범위: %d일";
-"cost_auto_refresh_info" = "자동 새로 고침: 매시간 · 시간 초과: 10분";
+"cost_auto_refresh_info" = "자동 새로 고침: 전역 간격(최소 5분) · 시간 초과: 10분";
 "cost_comparison_periods_title" = "더 짧은 비교 기간 표시";
 "cost_comparison_periods_subtitle" = "선택한 기록 범위에 포함되는 경우 7일, 30일, 90일 합계를 추가합니다. 이 합계에는 동일한 로컬 스캔을 재사용합니다.";
 "refresh_interval_title" = "새로 고침 주기";
@@ -588,6 +588,12 @@
 "agent_sessions_subtitle" = "메뉴에 로컬 및 SSH로 검색된 Codex 및 Claude Code 세션을 표시합니다.";
 "agent_sessions_hosts_title" = "추가 SSH 호스트";
 "agent_sessions_footer" = "tailnet의 Mac은 자동으로 검색됩니다. 로컬 세션은 30초마다, 원격 호스트는 60초마다 그리고 메뉴를 열 때 새로 고칩니다.";
+"agent_session_labels_title" = "세션 레이블";
+"agent_session_labels_subtitle" = "에이전트 세션 이름 지정 방법을 선택합니다.";
+"agent_session_label_project" = "프로젝트";
+"agent_session_label_descriptive" = "설명형";
+"agent_session_label_descriptive_and_project" = "설명형 + 프로젝트";
+"agent_session_unknown_project" = "알 수 없는 프로젝트";
 "section_keyboard_shortcut" = "키보드 단축키";
 "open_menu_shortcut_title" = "메뉴 열기";
 "open_menu_shortcut_subtitle" = "어디서나 메뉴 막대 메뉴를 실행합니다.";
@@ -711,11 +717,9 @@
 "adaptive_activity_consent_allow" = "로컬 활동 허용";
 "adaptive_activity_consent_decline" = "일반 적응형 사용";
 "not_found" = "찾을 수 없음";
-"cost_header_estimated" = "비용(추정)";
 "cost_estimate_hint" = "로컬 로그에서 추정 · 실제 청구액과 다를 수 있음";
-"codex_api_estimate_header" = "API 등가 추정치";
-"codex_api_estimate_hint" = "로컬 사용량 × 공개 API 가격 · 구독 청구서나 플랜 가치가 아닙니다";
-"codex_api_estimate_not_billed" = "구독 청구서나 플랜 가치가 아닙니다";
+"codex_api_estimate_hint" = "토큰 사용량 기반 추정 · 구독 청구서가 아님";
+"cost_data_explanation" = "비용은 제공업체가 보고하거나 토큰 사용량과 공개 API 가격을 기준으로 추정할 수 있습니다. 추정치는 구독 요금이 아닙니다.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "AI Assistant가 있는 JetBrains IDE를 찾지 못했습니다. JetBrains IDE를 설치하고 AI Assistant를 사용하세요.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "OpenRouter API 토큰이 구성되지 않았습니다. OPENROUTER_API_KEY 환경 변수를 설정하거나 설정에서 구성하세요.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "z.ai API 토큰을 찾을 수 없습니다. ~/.codexbar/config.json에 apiKey를 설정하거나 Z_AI_API_KEY를 설정하세요.";
@@ -745,6 +749,7 @@
 "Today" = "오늘";
 "Today tokens" = "오늘 토큰";
 "30d cost" = "30일 비용";
+"%@ cost" = "%@ 비용";
 "30d tokens" = "30일 토큰";
 "Latest tokens" = "최근 토큰";
 "Top model" = "상위 모델";
@@ -1231,6 +1236,10 @@
 "By subscription" = "구독별";
 "No model-level history" = "모델별 내역이 없습니다";
 "Daily estimated spend" = "일별 예상 지출";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "주간 한도 약 %d개의 전체 5시간 창 남음 · 재설정까지 %d개 창";
+"Weekly cannot run out before reset at this pace" = "이 속도라면 재설정 전에 주간 한도를 소진할 수 없습니다";
+"Weekly can run out ≈%d windows early" = "주간 한도가 약 %d개 창 일찍 소진될 수 있습니다";
+"Estimated: %@" = "예상: %@";
 "Coding Plan" = "코딩 요금제";
 "Agent Plan" = "에이전트 요금제";
 "Team" = "팀";

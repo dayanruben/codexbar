@@ -55,11 +55,13 @@ See `docs/configuration.md` for the schema.
   - `--brief` renders a compact table (Provider / Usage / Reset) instead of the card grid.
   - Stdout is always rendered text; `--json-output` only affects stderr logs (no JSON card payload).
   - Failed providers are summarized in a footer (not rendered as error cards).
-  - When the opt-in Claude claude-swap integration returns two or more accounts, cards renders every account in
-    active-first/slot order instead of the ambient or token-account Claude cards. This applies on macOS and Linux,
-    including an explicit `--provider claude`; `--source auto` remains eligible.
+  - When the opt-in Claude claude-swap integration returns two or more accounts—or one account with
+    `claudeSwapShowSingleAccount` enabled—cards renders every account in active-first/slot order instead of the
+    ambient or token-account Claude cards. This applies on macOS and Linux, including an explicit
+    `--provider claude`; `--source auto` remains eligible.
   - `--account`, `--account-index`, `--all-accounts`, and explicit non-auto source flags preserve their requested
-    ambient behavior and do not invoke claude-swap. Zero/one-account lists likewise retain ambient Claude output.
+    ambient behavior and do not invoke claude-swap. Zero-account lists always retain ambient Claude output;
+    one-account lists do so unless `claudeSwapShowSingleAccount` is enabled.
   - claude-swap sentinel accounts remain successful cards with their problem text and no fabricated usage metrics.
     A list adapter, parser, or timeout failure retains useful ambient Claude output, adds a distinct
     `Claude (claude-swap)` failure footer entry, and makes the command exit non-zero.
@@ -88,6 +90,11 @@ See `docs/configuration.md` for the schema.
   - `--cookies --provider <id>` removes browser-cookie cache entries for that provider, including managed Codex account scopes.
   - `--cost` removes local cost-usage scan caches.
   - `--all` clears both cookies and cost caches. `--provider` is cookie-only and cannot be combined with `--cost` or `--all`.
+- `codexbar cookie refresh` ignores the provider's current cookie caches while importing a replacement through its web strategy. A failed or interrupted import leaves existing cookies intact.
+  - Choose exactly one of `--provider <id>` or `--all`; provider support comes from shared browser-cookie metadata rather than a fixed CLI list.
+  - Prompt-capable Chromium imports require `--allow-keychain-prompt`. Without it, the command fails before cache mutation with an interactive-retry hint.
+  - A six-hour Keychain-denial cooldown is bypassed only by that explicit acknowledgment flag. Output never includes cookie values.
+  - Providers configured for Manual or Off cookie sources are skipped.
 - `codexbar guard --provider <id>` gates automation on one provider's remaining quota.
   - `--min-remaining <percent>` sets the inclusive threshold (default: `10`; valid range: `0...100`).
   - `--window session|weekly` selects the primary/session window or secondary/weekly window (default: `session`).
@@ -194,6 +201,7 @@ codexbar config enable --provider grok
 codexbar cache clear --cookies
 codexbar cache clear --cookies --provider claude
 codexbar cache clear --all --format json --pretty
+codexbar cookie refresh --provider opencodego --allow-keychain-prompt
 ```
 
 ### Sample output (text)

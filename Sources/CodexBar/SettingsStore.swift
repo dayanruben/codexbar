@@ -188,7 +188,7 @@ enum CodexAccountMenuProjectionRevalidationResult: Equatable {
 @Observable
 final class SettingsStore {
     static let sharedDefaults = AppGroupSupport.sharedDefaults()
-    static let mergedOverviewProviderLimit = 3
+    static let mergedOverviewProviderLimit = 6
     static let productionCodexAccountReconciliationSnapshotCacheInterval: TimeInterval = 2
     static let isRunningTests: Bool = {
         let env = ProcessInfo.processInfo.environment
@@ -521,6 +521,8 @@ extension SettingsStore {
             forKey: "providersSortedAlphabetically") as? Bool ?? false
         let appLanguageRaw = userDefaults.string(forKey: "appLanguage")
         let agentSessionsEnabled = userDefaults.object(forKey: "agentSessionsEnabled") as? Bool ?? false
+        let agentSessionLabelStyleRaw = userDefaults.string(forKey: "agentSessionLabelStyle")
+            ?? AgentSessionLabelStyle.project.rawValue
         let agentSessionsManualHosts = userDefaults.string(forKey: "agentSessionsManualHosts") ?? ""
         return SettingsDefaultsState(
             refreshFrequency: refreshFrequency,
@@ -593,6 +595,7 @@ extension SettingsStore {
             appLanguageRaw: appLanguageRaw,
             terminalAppRaw: userDefaults.string(forKey: "terminalApp"),
             agentSessionsEnabled: agentSessionsEnabled,
+            agentSessionLabelStyleRaw: agentSessionLabelStyleRaw,
             agentSessionsManualHosts: agentSessionsManualHosts)
     }
 

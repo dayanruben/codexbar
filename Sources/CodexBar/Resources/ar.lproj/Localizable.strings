@@ -448,7 +448,7 @@
 "cost_history_days_title" = "نافذة التاريخ: %d أيام";
 "cost_comparison_periods_title" = "إظهار فترات مقارنة أقصر";
 "cost_comparison_periods_subtitle" = "أضف إجماليات 7 و30 و90 يومًا عندما تقع ضمن نافذة التاريخ المحددة. تعيد هذه الإجماليات استخدام الفحص المحلي نفسه.";
-"cost_auto_refresh_info" = "تحديث تلقائي: كل ساعة · وقت الاستراحة: 10m";
+"cost_auto_refresh_info" = "تحديث تلقائي: الفاصل الزمني العام (الحد الأدنى 5 دقائق) · المهلة: 10 دقائق";
 "refresh_interval_title" = "فاصل التحديث";
 "manual_refresh_hint" = "التحديث التلقائي مغلق؛ استخدم أمر التحديث في القائمة.";
 "refresh_on_open_title" = "التحديث عند فتح القائمة";
@@ -605,6 +605,12 @@
 "agent_sessions_subtitle" = "إظهار جلسات Codex وClaude Code المحلية والمكتشفة عبر SSH في القائمة.";
 "agent_sessions_hosts_title" = "مضيفو SSH إضافيون";
 "agent_sessions_footer" = "يتم اكتشاف أجهزة Mac على شبكة tailnet تلقائيًا. يتم تحديث الجلسات المحلية كل 30 ثانية؛ والمضيفون البعيدون كل 60 ثانية وعند فتح القائمة.";
+"agent_session_labels_title" = "تسميات الجلسات";
+"agent_session_labels_subtitle" = "اختر كيفية تسمية جلسات الوكلاء.";
+"agent_session_label_project" = "المشروع";
+"agent_session_label_descriptive" = "وصفي";
+"agent_session_label_descriptive_and_project" = "وصفي + المشروع";
+"agent_session_unknown_project" = "مشروع غير معروف";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "اختصار لوحة المفاتيح";
@@ -746,11 +752,9 @@
 "not_found" = "لم يعثر عليه";
 
 /* Cost estimation */
-"cost_header_estimated" = "التكلفة (تقديرية)";
 "cost_estimate_hint" = "تقديرات من سجلات محلية · قد تختلف عن فاتورتك";
-"codex_api_estimate_header" = "تقدير مكافئ لواجهة API";
-"codex_api_estimate_hint" = "الاستخدام المحلي × أسعار API العامة · ليس فاتورة اشتراك أو قيمة خطة";
-"codex_api_estimate_not_billed" = "ليس فاتورة اشتراك أو قيمة خطة";
+"codex_api_estimate_hint" = "تقدير استنادًا إلى استخدام الرموز · ليست فاتورة اشتراك";
+"cost_data_explanation" = "قد تكون التكاليف واردة من المزوّد أو مقدّرة من استخدام الرموز وفق أسعار API العامة. التقديرات ليست رسوم اشتراك.";
 "No JetBrains IDE with AI Assistant detected. Install a JetBrains IDE and enable AI Assistant." = "لم يتم اكتشاف أي JetBrains IDE مع مساعدة الذكاء الاصطناعي. قم بتثبيت JetBrains IDE وفعل AI Assistant.";
 "OpenRouter API token not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings." = "OpenRouter API الرمز غير مكون. حدد OPENROUTER_API_KEY متغير البيئة أو قم بالتكوين في الإعدادات.";
 "z.ai API token not found. Set apiKey in ~/.codexbar/config.json or Z_AI_API_KEY." = "z.ai API الرمز لم يعثر عليه. اضبط apiKey في ~/.codexbar/config.json أو Z_AI_API_KEY.";
@@ -780,6 +784,7 @@
 "Today" = "اليوم";
 "Today tokens" = "الرموز اليوم";
 "30d cost" = "تكلفة 30d";
+"%@ cost" = "تكلفة %@";
 "30d tokens" = "رموز 30d";
 "Latest tokens" = "أحدث الرموز";
 "Top model" = "أفضل موديل";
@@ -1267,6 +1272,10 @@
 "By subscription" = "حسب الاشتراك";
 "No model-level history" = "لا يوجد سجل على مستوى النموذج";
 "Daily estimated spend" = "الإنفاق اليومي التقديري";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "≈%d نافذة كاملة مدتها 5 ساعات متبقية من الأسبوعي · %d نافذة حتى إعادة التعيين";
+"Weekly cannot run out before reset at this pace" = "لا يمكن أن ينفد الحد الأسبوعي قبل إعادة التعيين بهذه الوتيرة";
+"Weekly can run out ≈%d windows early" = "قد ينفد الحد الأسبوعي مبكرًا بنحو %d نافذة";
+"Estimated: %@" = "تقديري: %@";
 "Coding Plan" = "خطة البرمجة";
 "Agent Plan" = "خطة الوكيل";
 "Team" = "فريق";

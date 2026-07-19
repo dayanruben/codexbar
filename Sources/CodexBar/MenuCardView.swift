@@ -39,6 +39,7 @@ struct UsageMenuCardView: View {
             let warningMarkerPercents: [Double]
             let workdayMarkerPercents: [Double]
             let cardStyle: Bool
+            let sessionEquivalentDetail: UsagePaceText.SessionEquivalentDetail?
 
             init(
                 id: String,
@@ -54,7 +55,8 @@ struct UsageMenuCardView: View {
                 paceOnTop: Bool,
                 warningMarkerPercents: [Double] = [],
                 workdayMarkerPercents: [Double] = [],
-                cardStyle: Bool = false)
+                cardStyle: Bool = false,
+                sessionEquivalentDetail: UsagePaceText.SessionEquivalentDetail? = nil)
             {
                 self.id = id
                 self.title = title
@@ -70,6 +72,7 @@ struct UsageMenuCardView: View {
                 self.warningMarkerPercents = warningMarkerPercents
                 self.workdayMarkerPercents = workdayMarkerPercents
                 self.cardStyle = cardStyle
+                self.sessionEquivalentDetail = sessionEquivalentDetail
             }
 
             var percentLabel: String {
@@ -220,6 +223,7 @@ struct UsageMenuCardView: View {
                         TokenUsageSectionContent(
                             provider: liveModel.provider,
                             tokenUsage: tokenUsage,
+                            showsCodexHint: liveModel.inlineUsageDashboard == nil,
                             lineFont: .footnote)
                     }
                 }
@@ -409,6 +413,7 @@ private struct CopyIconButton: View {
 private struct TokenUsageSectionContent: View {
     let provider: UsageProvider
     let tokenUsage: UsageMenuCardView.Model.TokenUsageSection
+    let showsCodexHint: Bool
     let lineFont: Font
     @Environment(\.menuItemHighlighted) private var isHighlighted
 
@@ -433,7 +438,10 @@ private struct TokenUsageSectionContent: View {
                     .font(self.lineFont)
                     .lineLimit(1)
             }
-            if let hint = self.tokenUsage.hintLine, !hint.isEmpty {
+            if self.provider != .codex || self.showsCodexHint,
+               let hint = self.tokenUsage.hintLine,
+               !hint.isEmpty
+            {
                 Text(hint)
                     .font(.footnote)
                     .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
@@ -542,6 +550,18 @@ private struct MetricRow: View {
                                     .lineLimit(1)
                             }
                         }
+                    }
+                    if let sessionEquivalentDetail = self.metric.sessionEquivalentDetail {
+                        Text(sessionEquivalentDetail.verdictText)
+                            .font(.footnote)
+                            .foregroundStyle(MenuHighlightStyle.primary(self.isHighlighted))
+                            .lineLimit(1)
+                            .accessibilityLabel(sessionEquivalentDetail.verdictAccessibilityLabel)
+                        Text(sessionEquivalentDetail.numberText)
+                            .font(.footnote)
+                            .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                            .lineLimit(1)
+                            .accessibilityLabel(sessionEquivalentDetail.numberAccessibilityLabel)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -823,6 +843,7 @@ struct UsageMenuCardCostSectionView: View {
                         TokenUsageSectionContent(
                             provider: liveModel.provider,
                             tokenUsage: tokenUsage,
+                            showsCodexHint: true,
                             lineFont: .caption)
                     }
                 }
@@ -1433,7 +1454,11 @@ extension UsageMenuCardView.Model {
             paceOnTop: primaryPaceOnTop,
             warningMarkerPercents: Self.warningMarkerPercents(
                 thresholds: input.quotaWarningThresholds[.session],
-                showUsed: input.usageBarsShowUsed))
+                showUsed: input.usageBarsShowUsed),
+            sessionEquivalentDetail: Self.sessionEquivalentDetail(
+                input: input,
+                weeklyWindow: primary,
+                weeklyWindowID: nil))
     }
 
     private static func secondaryMetric(
@@ -1551,59 +1576,10 @@ extension UsageMenuCardView.Model {
                 showUsed: input.usageBarsShowUsed),
             workdayMarkerPercents: workDayMarkerPercents(
                 workDays: input.workDaysPerWeek,
-                windowMinutes: weekly.windowMinutes))
-    }
-
-    private static func codexRateMetrics(
-        input: Input,
-        projection: CodexConsumerProjection,
-        percentStyle: PercentStyle) -> [Metric]
-    {
-        projection.visibleRateLanes.compactMap { lane in
-            guard let window = projection.rateWindow(for: lane) else { return nil }
-
-            let title: String
-            let id: String
-            let paceDetail: PaceDetail?
-            switch lane {
-            case .session:
-                title = L(input.metadata.sessionLabel)
-                id = "primary"
-                paceDetail = Self.sessionPaceDetail(
-                    provider: input.provider,
-                    window: window,
-                    now: input.now,
-                    showUsed: input.usageBarsShowUsed)
-            case .weekly:
-                title = L(input.metadata.weeklyLabel)
-                id = "secondary"
-                paceDetail = Self.weeklyPaceDetail(
-                    provider: input.provider,
-                    window: window,
-                    now: input.now,
-                    pace: Self.standardWeeklyPace(input: input, window: window),
-                    showUsed: input.usageBarsShowUsed)
-            }
-
-            return Metric(
-                id: id,
-                title: title,
-                percent: Self.clamped(input.usageBarsShowUsed ? window.usedPercent : window.remainingPercent),
-                percentStyle: percentStyle,
-                resetText: Self.resetText(for: window, style: input.resetTimeDisplayStyle, now: input.now),
-                detailText: nil,
-                detailLeftText: paceDetail?.leftLabel,
-                detailRightText: paceDetail?.rightLabel,
-                pacePercent: paceDetail?.pacePercent,
-                paceOnTop: paceDetail?.paceOnTop ?? true,
-                warningMarkerPercents: Self.warningMarkerPercents(
-                    thresholds: input.quotaWarningThresholds[lane.quotaWarningWindow],
-                    showUsed: input.usageBarsShowUsed),
-                workdayMarkerPercents: lane == .weekly
-                    ? workDayMarkerPercents(
-                        workDays: input.workDaysPerWeek,
-                        windowMinutes: window.windowMinutes)
-                    : [])
-        }
+                windowMinutes: weekly.windowMinutes),
+            sessionEquivalentDetail: Self.sessionEquivalentDetail(
+                input: input,
+                weeklyWindow: weekly,
+                weeklyWindowID: nil))
     }
 }

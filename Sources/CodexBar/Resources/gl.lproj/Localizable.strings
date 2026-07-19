@@ -442,7 +442,7 @@
 "cost_history_window_title" = "Xanela do historial";
 "cost_history_window_help" = "Define cantos días de rexistros de uso locais aparecen no menú.";
 "cost_history_days_title" = "Xanela de historial: %d días";
-"cost_auto_refresh_info" = "Actualización automática: cada hora · Tempo de espera: 10 m";
+"cost_auto_refresh_info" = "Actualización automática: intervalo global (mínimo 5 min) · Tempo de espera: 10 min";
 "cost_comparison_periods_title" = "Mostrar períodos de comparación máis curtos";
 "cost_comparison_periods_subtitle" = "Engade totais de 7, 30 e 90 días cando caiban na xanela de historial seleccionada. Estes totais reutilizan a mesma análise local.";
 "refresh_interval_title" = "Intervalo de actualización";
@@ -578,6 +578,12 @@
 "agent_sessions_subtitle" = "Amosa no menú as sesións de Codex e Claude Code locais e descubertas mediante SSH.";
 "agent_sessions_hosts_title" = "Hosts SSH adicionais";
 "agent_sessions_footer" = "Os Mac da túa tailnet descóbrense automaticamente. As sesións locais actualízanse cada 30 segundos; os hosts remotos cada 60 segundos e cando se abre o menú.";
+"agent_session_labels_title" = "Etiquetas de sesión";
+"agent_session_labels_subtitle" = "Escolle como se nomean as sesións de axentes.";
+"agent_session_label_project" = "Proxecto";
+"agent_session_label_descriptive" = "Descritiva";
+"agent_session_label_descriptive_and_project" = "Descritiva + proxecto";
+"agent_session_unknown_project" = "Proxecto descoñecido";
 
 /* Advanced Pane */
 "section_keyboard_shortcut" = "Atallo de teclado";
@@ -713,11 +719,9 @@
 "not_found" = "Non atopado";
 
 /* Cost estimation */
-"cost_header_estimated" = "Custo (estimado)";
 "cost_estimate_hint" = "Estimado a partir de rexistros locais · pode diferir da túa factura";
-"codex_api_estimate_header" = "Estimación equivalente á API";
-"codex_api_estimate_hint" = "Uso local × prezos públicos da API · non é unha factura de subscrición nin o valor dun plan";
-"codex_api_estimate_not_billed" = "non é unha factura de subscrición nin o valor dun plan";
+"codex_api_estimate_hint" = "Estimado a partir do uso de tokens · non é unha factura de subscrición";
+"cost_data_explanation" = "Os custos poden ser comunicados polo provedor ou estimados a partir do uso de tokens cos prezos públicos da API. As estimacións non son cargos de subscrición.";
 
 /* Popup panels */
 "No usage configured." = "Non hai ningún uso configurado.";
@@ -804,6 +808,7 @@
 "Today" = "Hoxe";
 "Today tokens" = "Tokens de hoxe";
 "30d cost" = "Custo en 30 d";
+"%@ cost" = "Custo en %@";
 "30d tokens" = "Tokens en 30 d";
 "Latest tokens" = "Tokens máis recentes";
 "Top model" = "Modelo principal";
@@ -1263,6 +1268,10 @@
 "By subscription" = "Por subscrición";
 "No model-level history" = "Sen historial por modelo";
 "Daily estimated spend" = "Gasto diario estimado";
+"≈%d full 5h windows of weekly left · %d windows until reset" = "≈%d xanelas completas de 5 h de cota semanal · %d xanelas ata o restablecemento";
+"Weekly cannot run out before reset at this pace" = "A cota semanal non pode esgotarse antes do restablecemento a este ritmo";
+"Weekly can run out ≈%d windows early" = "A cota semanal pode esgotarse ≈%d xanelas antes";
+"Estimated: %@" = "Estimación: %@";
 "Coding Plan" = "Plan de programación";
 "Agent Plan" = "Plan de axente";
 "Team" = "Equipo";
