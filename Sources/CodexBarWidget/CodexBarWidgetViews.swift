@@ -327,6 +327,7 @@ private struct ProviderSwitchChip: View {
         case .moonshot: "Moonshot"
         case .amp: "Amp"
         case .t3chat: "T3 Chat"
+        case .zoommate: "ZoomMate"
         case .ollama: "Ollama"
         case .synthetic: "Synthetic"
         case .openrouter: "OpenRouter"
@@ -363,6 +364,7 @@ private struct ProviderSwitchChip: View {
         case .neuralwatt: "Neuralwatt"
         case .zenmux: "ZenMux"
         case .aiand: "ai&"
+        case .xai: "xAI"
         }
     }
 }
@@ -1049,6 +1051,8 @@ enum WidgetColors {
             Color(red: 220 / 255, green: 38 / 255, blue: 38 / 255) // Amp red
         case .t3chat:
             Color(red: 245 / 255, green: 102 / 255, blue: 71 / 255)
+        case .zoommate:
+            Color(red: 11 / 255, green: 92 / 255, blue: 255 / 255) // Zoom blue
         case .ollama:
             Color(red: 32 / 255, green: 32 / 255, blue: 32 / 255) // Ollama charcoal
         case .synthetic:
@@ -1121,6 +1125,8 @@ enum WidgetColors {
             Color(red: 108 / 255, green: 92 / 255, blue: 231 / 255)
         case .aiand:
             Color(red: 226 / 255, green: 92 / 255, blue: 43 / 255)
+        case .xai:
+            Color(red: 142 / 255, green: 142 / 255, blue: 147 / 255)
         }
     }
 }

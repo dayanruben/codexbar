@@ -187,6 +187,8 @@ public enum ProviderDescriptorRegistry {
         .wayfinder: WayfinderProviderDescriptor.descriptor,
         .zenmux: ZenMuxProviderDescriptor.descriptor,
         .aiand: AiAndProviderDescriptor.descriptor,
+        .zoommate: ZoomMateProviderDescriptor.descriptor,
+        .xai: XAIProviderDescriptor.descriptor,
     ]
     private static let bootstrap: Void = {
         for provider in UsageProvider.allCases {
