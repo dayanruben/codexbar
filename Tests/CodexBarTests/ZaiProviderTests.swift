@@ -4,6 +4,29 @@ import Testing
 
 struct ZaiSettingsReaderTests {
     @Test
+    func `BigModel aliases are available only to China region`() {
+        let environment = ["BIGMODEL_API_KEY": "china-token"]
+
+        #expect(ZaiSettingsReader.apiToken(for: .bigmodelCN, environment: environment) == "china-token")
+        #expect(ZaiSettingsReader.apiToken(for: .global, environment: environment) == nil)
+    }
+
+    @Test
+    func `GLM relay file is available only to China region`() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ZaiSettingsReaderTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let relayDirectory = home.appendingPathComponent(".coding-relay", isDirectory: true)
+        try FileManager.default.createDirectory(at: relayDirectory, withIntermediateDirectories: true)
+        try Data(" relay-china-token\nignored-second-line".utf8)
+            .write(to: relayDirectory.appendingPathComponent("glm-api-key"))
+
+        #expect(ZaiSettingsReader.apiToken(for: .bigmodelCN, environment: [:], homeDirectory: home) ==
+            "relay-china-token")
+        #expect(ZaiSettingsReader.apiToken(for: .global, environment: [:], homeDirectory: home) == nil)
+    }
+
+    @Test
     func `api token reads from environment`() {
         let token = ZaiSettingsReader.apiToken(environment: ["Z_AI_API_KEY": "abc123"])
         #expect(token == "abc123")
@@ -51,6 +74,20 @@ struct ZaiSettingsReaderTests {
             ])
         }
     }
+
+    @Test
+    func `canonical endpoint override must match selected region`() {
+        #expect(throws: ZaiSettingsError.endpointRegionMismatch(ZaiSettingsReader.apiHostKey, .global)) {
+            try ZaiSettingsReader.validateEndpointOverrides(
+                region: .global,
+                environment: [ZaiSettingsReader.apiHostKey: "open.bigmodel.cn"])
+        }
+        #expect(throws: ZaiSettingsError.endpointRegionMismatch(ZaiSettingsReader.apiHostKey, .bigmodelCN)) {
+            try ZaiSettingsReader.validateEndpointOverrides(
+                region: .bigmodelCN,
+                environment: [ZaiSettingsReader.apiHostKey: "api.z.ai"])
+        }
+    }
 }
 
 struct ZaiUsageSnapshotTests {
@@ -88,10 +125,13 @@ struct ZaiUsageSnapshotTests {
         #expect(usage.primary?.usedPercent == 20)
         #expect(usage.primary?.windowMinutes == 300)
         #expect(usage.primary?.resetsAt == reset)
-        #expect(usage.primary?.resetDescription == "5 hours window")
-        #expect(usage.secondary?.usedPercent == 20)
-        #expect(usage.secondary?.resetDescription == "30 days window")
+        #expect(usage.primary?.resetDescription == "5-hour")
+        #expect(usage.secondary == nil)
         #expect(usage.tertiary == nil)
+        #expect(usage.extraRateWindows?.first?.id == "zai-mcp")
+        #expect(usage.extraRateWindows?.first?.window.usedPercent == 20)
+        #expect(usage.extraRateWindows?.first?.window.windowMinutes == nil)
+        #expect(usage.extraRateWindows?.first?.window.resetDescription == "MCP")
         #expect(usage.zaiUsage?.tokenLimit?.usage == 100)
         #expect(usage.zaiUsage?.sessionTokenLimit == nil)
     }
@@ -120,7 +160,7 @@ struct ZaiUsageSnapshotTests {
         #expect(usage.primary?.usedPercent == 25)
         #expect(usage.primary?.windowMinutes == 300)
         #expect(usage.primary?.resetsAt == reset)
-        #expect(usage.primary?.resetDescription == "5 hours window")
+        #expect(usage.primary?.resetDescription == "5-hour")
         #expect(usage.zaiUsage?.tokenLimit?.usage == nil)
     }
 
@@ -197,7 +237,7 @@ struct ZaiUsageSnapshotTests {
     }
 
     @Test
-    func `time limit with explicit duration preserves windowMinutes instead of monthly sentinel`() {
+    func `time limit does not fabricate a coding plan duration`() {
         let reset = Date(timeIntervalSince1970: 123)
         let timeLimit = ZaiLimitEntry(
             type: .timeLimit,
@@ -217,12 +257,12 @@ struct ZaiUsageSnapshotTests {
 
         let usage = snapshot.toUsageSnapshot()
 
-        #expect(usage.primary?.windowMinutes == 300)
-        #expect(usage.primary?.resetDescription == "5 hours window")
+        #expect(usage.primary?.windowMinutes == nil)
+        #expect(usage.primary?.resetDescription == "MCP")
     }
 
     @Test
-    func `time limit without explicit duration falls back to monthly sentinel`() {
+    func `time limit without explicit duration remains an MCP lane`() {
         let reset = Date(timeIntervalSince1970: 123)
         let timeLimit = ZaiLimitEntry(
             type: .timeLimit,
@@ -242,7 +282,8 @@ struct ZaiUsageSnapshotTests {
 
         let usage = snapshot.toUsageSnapshot()
 
-        #expect(usage.primary?.windowMinutes == ProviderPaceCapability.monthlyWindowSentinelMinutes)
+        #expect(usage.primary?.windowMinutes == nil)
+        #expect(usage.primary?.resetDescription == "MCP")
     }
 }
 
@@ -302,12 +343,15 @@ struct ZaiUsageParsingTests {
         #expect(snapshot.tokenLimit?.percentage == 34.0)
 
         let usage = snapshot.toUsageSnapshot()
-        #expect(usage.secondary?.windowMinutes == ProviderPaceCapability.monthlyWindowSentinelMinutes)
-        #expect(usage.secondary?.resetDescription == "Monthly")
+        #expect(usage.primary?.windowMinutes == 300)
+        #expect(usage.primary?.resetDescription == "5-hour")
+        #expect(usage.secondary == nil)
+        #expect(usage.extraRateWindows?.first?.title == "MCP")
+        #expect(usage.extraRateWindows?.first?.window.windowMinutes == nil)
     }
 
     @Test
-    func `zai mcp time limit displays monthly instead of one minute window`() throws {
+    func `zai mcp time limit stays separate from the coding window`() throws {
         let json = """
         {
           "code": 200,
@@ -341,8 +385,10 @@ struct ZaiUsageParsingTests {
         let usage = snapshot.toUsageSnapshot()
 
         #expect(snapshot.timeLimit?.windowDescription == "1 minute")
-        #expect(usage.secondary?.windowMinutes == ProviderPaceCapability.monthlyWindowSentinelMinutes)
-        #expect(usage.secondary?.resetDescription == "Monthly")
+        #expect(usage.primary?.windowMinutes == 300)
+        #expect(usage.secondary == nil)
+        #expect(usage.extraRateWindows?.first?.window.windowMinutes == nil)
+        #expect(usage.extraRateWindows?.first?.window.resetDescription == "MCP")
     }
 
     @Test
@@ -497,13 +543,34 @@ struct ZaiUsageParsingTests {
         let snapshot = try ZaiUsageFetcher.parseUsageSnapshot(from: Data(json.utf8))
         let usage = snapshot.toUsageSnapshot()
 
-        #expect(usage.primary?.usedPercent == 7)
-        #expect(usage.secondary?.usedPercent == 14.7)
-        #expect(usage.tertiary?.usedPercent == 8)
+        #expect(snapshot.planName == "pro")
+        #expect(usage.primary?.usedPercent == 8)
+        #expect(usage.primary?.windowMinutes == 300)
+        #expect(usage.secondary?.usedPercent == 7)
+        #expect(usage.secondary?.windowMinutes == 10080)
+        #expect(usage.tertiary == nil)
+        #expect(usage.extraRateWindows?.first?.window.usedPercent == 14.7)
     }
 }
 
 struct ZaiBigModelTeamScopeTests {
+    @Test
+    func `region mismatch rejects canonical host before sending bearer token`() async throws {
+        let transport = ProviderHTTPTransportStub { request in
+            Issue.record("Unexpected credentialed request to \(request.url?.absoluteString ?? "<nil>")")
+            throw URLError(.badURL)
+        }
+
+        await #expect(throws: ZaiSettingsError.endpointRegionMismatch(ZaiSettingsReader.apiHostKey, .global)) {
+            try await ZaiUsageFetcher.fetchUsage(
+                apiKey: "china-token",
+                region: .global,
+                environment: [ZaiSettingsReader.apiHostKey: "open.bigmodel.cn"],
+                transport: transport)
+        }
+        #expect(await transport.requests().isEmpty)
+    }
+
     @Test
     func `team scope appends type 2 and sends BigModel project headers`() async throws {
         let transport = ProviderHTTPTransportStub { request in
@@ -855,8 +922,87 @@ struct ZaiHourlyUsageTests {
         #expect(bars.map(\.totalTokens) == [20, 30])
     }
 
+    @Test
+    func `model usage parser decodes daily model payload`() throws {
+        let json = """
+        {
+          "code": 200,
+          "msg": "success",
+          "success": true,
+          "data": {
+            "x_time": ["2026-05-13", "2026-05-14"],
+            "modelDataList": [
+              { "modelName": "glm-4.6", "tokensUsage": [300, 150] }
+            ]
+          }
+        }
+        """
+
+        let usage = try ZaiUsageFetcher.parseModelUsage(from: Data(json.utf8))
+
+        #expect(usage.xTime == ["2026-05-13", "2026-05-14"])
+        #expect(usage.modelDataList[0].tokensUsage == [300, 150])
+    }
+
+    @Test
+    func `last 7 day bars aggregate daily buckets and drop older days`() {
+        let reference = Self.localDate(year: 2026, month: 5, day: 14, hour: 12)
+        let old = Calendar.current.date(byAdding: .day, value: -8, to: reference) ?? reference
+        let inWindow = Calendar.current.date(byAdding: .day, value: -6, to: reference) ?? reference
+        let modelData = ZaiModelUsageData(
+            xTime: [
+                Self.dayString(old),
+                Self.dayString(inWindow),
+                Self.dayString(reference),
+            ],
+            modelDataList: [
+                ZaiModelDataItem(modelName: "glm-4.6", tokensUsage: [999, 100, 40]),
+                ZaiModelDataItem(modelName: "glm-4.5", tokensUsage: [0, 50, nil]),
+            ])
+
+        let bars = ZaiHourlyBars.from(modelData: modelData, range: .last7d, now: reference)
+
+        #expect(bars.map(\.label) == [Self.dayLabel(inWindow), Self.dayLabel(reference)])
+        #expect(bars.map(\.totalTokens) == [150, 40])
+        #expect(bars.first?.segments.count == 2)
+    }
+
+    @Test
+    func `last 30 day bars keep days beyond the 7 day window`() {
+        let reference = Self.localDate(year: 2026, month: 5, day: 14, hour: 12)
+        let day20 = Calendar.current.date(byAdding: .day, value: -20, to: reference) ?? reference
+        let day35 = Calendar.current.date(byAdding: .day, value: -35, to: reference) ?? reference
+        let modelData = ZaiModelUsageData(
+            xTime: [
+                Self.dayString(day35),
+                Self.dayString(day20),
+                Self.dayString(reference),
+            ],
+            modelDataList: [ZaiModelDataItem(modelName: "glm-4.6", tokensUsage: [5, 20, 30])])
+
+        let bars = ZaiHourlyBars.from(modelData: modelData, range: .last30d, now: reference)
+
+        // -35 days is outside the 30-day window; -20 and today remain.
+        #expect(bars.map(\.label) == [Self.dayLabel(day20), Self.dayLabel(reference)])
+        #expect(bars.map(\.totalTokens) == [20, 30])
+    }
+
     private static func localDate(year: Int, month: Int, day: Int, hour: Int) -> Date {
         Calendar.current.date(from: DateComponents(year: year, month: month, day: day, hour: hour)) ?? Date()
+    }
+
+    private static func dayString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
+    }
+
+    private static func dayLabel(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
     }
 
     private static func hourString(_ date: Date) -> String {
@@ -920,29 +1066,33 @@ struct ZaiThreeLimitTests {
 
         let snapshot = try ZaiUsageFetcher.parseUsageSnapshot(from: Data(json.utf8))
 
-        // Weekly token limit (unit:6=weeks, longer window) → tokenLimit (primary)
+        // Weekly token limit (unit:6=weeks, longer window) → tokenLimit (secondary)
         #expect(snapshot.tokenLimit?.unit == .weeks)
         #expect(snapshot.tokenLimit?.number == 1)
         #expect(snapshot.tokenLimit?.percentage == 9.0)
         #expect(snapshot.tokenLimit?.windowMinutes == 10080)
 
-        // 5-hour token limit (unit:3=hours, number:5 → 300 min) → sessionTokenLimit (tertiary)
+        // 5-hour token limit (unit:3=hours, number:5 → 300 min) → sessionTokenLimit (primary)
         #expect(snapshot.sessionTokenLimit?.unit == .hours)
         #expect(snapshot.sessionTokenLimit?.number == 5)
         #expect(snapshot.sessionTokenLimit?.percentage == 25.0)
         #expect(snapshot.sessionTokenLimit?.windowMinutes == 300)
 
-        // MCP time limit → timeLimit (secondary)
+        // MCP time limit → timeLimit (extra lane)
         #expect(snapshot.timeLimit?.usage == 1000)
         #expect(snapshot.timeLimit?.usageDetails.first?.modelCode == "search-prime")
 
         // UsageSnapshot slot mapping
         let usage = snapshot.toUsageSnapshot()
-        #expect(usage.primary?.usedPercent == 9.0)
-        #expect(usage.primary?.windowMinutes == 10080)
-        #expect(usage.secondary != nil) // MCP
-        #expect(usage.tertiary?.usedPercent == 25.0)
-        #expect(usage.tertiary?.windowMinutes == 300)
+        #expect(snapshot.planName == "pro")
+        #expect(usage.primary?.usedPercent == 25.0)
+        #expect(usage.primary?.windowMinutes == 300)
+        #expect(usage.primary?.resetDescription == "5-hour")
+        #expect(usage.secondary?.usedPercent == 9.0)
+        #expect(usage.secondary?.windowMinutes == 10080)
+        #expect(usage.tertiary == nil)
+        #expect(usage.extraRateWindows?.first?.id == "zai-mcp")
+        #expect(abs((usage.extraRateWindows?.first?.window.usedPercent ?? 0) - 22.4) < 0.0001)
     }
 
     @Test
@@ -1001,8 +1151,9 @@ struct ZaiThreeLimitTests {
 
         let usage = snapshot.toUsageSnapshot()
         #expect(usage.primary != nil)
-        #expect(usage.secondary != nil)
+        #expect(usage.secondary == nil)
         #expect(usage.tertiary == nil)
+        #expect(usage.extraRateWindows?.first?.id == "zai-mcp")
     }
 }
 

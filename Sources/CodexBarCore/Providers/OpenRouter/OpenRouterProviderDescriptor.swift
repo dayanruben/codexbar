@@ -18,13 +18,14 @@ public enum OpenRouterProviderDescriptor {
                 toggleTitle: "Show OpenRouter usage",
                 cliName: "openrouter",
                 defaultEnabled: false,
+                widgetSelectable: false,
                 isPrimaryProvider: false,
                 usesAccountFallback: false,
                 dashboardURL: "https://openrouter.ai/settings/credits",
                 statusPageURL: nil,
                 statusLinkURL: "https://status.openrouter.ai"),
             branding: ProviderBranding(
-                iconStyle: .openrouter,
+                iconStyle: .init(provider: .openrouter),
                 iconResourceName: "ProviderIcon-openrouter",
                 color: ProviderColor(red: 100 / 255, green: 103 / 255, blue: 242 / 255),
                 confettiPalette: [
@@ -35,19 +36,39 @@ public enum OpenRouterProviderDescriptor {
             tokenCost: ProviderTokenCostConfig(
                 supportsTokenCost: false,
                 noDataMessage: { "OpenRouter cost summary is not yet supported." }),
-            fetchPlan: .apiToken(
-                strategyID: "openrouter.api",
-                resolveToken: { ProviderTokenResolver.openRouterToken(environment: $0) },
-                missingCredentialsError: { OpenRouterSettingsError.missingToken },
-                loadUsage: { apiKey, context in
-                    try await OpenRouterUsageFetcher.fetchUsage(
-                        apiKey: apiKey,
-                        environment: context.env).toUsageSnapshot()
-                }),
+            fetchPlan: self.fetchPlan(),
             cli: ProviderCLIConfig(
                 name: "openrouter",
                 aliases: ["or"],
                 versionDetector: nil))
+    }
+
+    private static func fetchPlan() -> ProviderFetchPlan {
+        #if canImport(JavaScriptCore)
+        .scriptPrototypeAPI(
+            configuration: .init(
+                provider: .openrouter,
+                plugin: "openrouter",
+                secretKey: OpenRouterSettingsReader.envKey,
+                strategyID: "openrouter.api"),
+            resolveToken: { ProviderTokenResolver.openRouterToken(environment: $0) },
+            missingCredentialsError: { OpenRouterSettingsError.missingToken },
+            loadUsage: { apiKey, context in
+                try await OpenRouterUsageFetcher.fetchUsage(
+                    apiKey: apiKey,
+                    environment: context.env).toUsageSnapshot()
+            })
+        #else
+        .apiToken(
+            strategyID: "openrouter.api",
+            resolveToken: { ProviderTokenResolver.openRouterToken(environment: $0) },
+            missingCredentialsError: { OpenRouterSettingsError.missingToken },
+            loadUsage: { apiKey, context in
+                try await OpenRouterUsageFetcher.fetchUsage(
+                    apiKey: apiKey,
+                    environment: context.env).toUsageSnapshot()
+            })
+        #endif
     }
 }
 

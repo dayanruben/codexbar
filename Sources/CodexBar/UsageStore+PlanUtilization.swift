@@ -475,11 +475,7 @@ extension UsageStore {
         context: LimitResetDetectionContext,
         samples: [PlanUtilizationSeriesSample])
     {
-        let shouldIgnoreCommandCode = context.provider == .commandcode
-            && context.snapshot.commandCodeSubscriptionEnrichmentUnavailable
-        let sessionObservation: LimitResetObservation? = if shouldIgnoreCommandCode {
-            nil
-        } else if context.provider == .codex {
+        let sessionObservation: LimitResetObservation? = if context.provider == .codex {
             samples.last(where: { $0.name == .session }).map {
                 LimitResetObservation(
                     usedPercent: $0.entry.usedPercent,
@@ -532,7 +528,7 @@ extension UsageStore {
         case .primary:
             guard let minutes = resolved.window.windowMinutes else { return false }
             return minutes > 0 && minutes <= 6 * 60
-        case .copilotSecondaryFallback, .zaiTertiary, .antigravityQuotaSummary, .antigravityLegacy:
+        case .copilotSecondaryFallback, .antigravityQuotaSummary, .antigravityLegacy:
             return true
         }
     }
