@@ -2,10 +2,14 @@ import Foundation
 
 public enum AiAndProviderDescriptor {
     public static let descriptor: ProviderDescriptor = Self.makeDescriptor()
+    private static let credentials = ProviderCredentialAdapter.apiKey(
+        environmentKey: AiAndSettingsReader.apiKeyEnvironmentKey,
+        resolve: AiAndSettingsReader.apiKey)
 
     static func makeDescriptor() -> ProviderDescriptor {
         ProviderDescriptor(
             id: .aiand,
+            credentials: self.credentials,
             metadata: ProviderMetadata(
                 id: .aiand,
                 displayName: "ai&",
@@ -19,6 +23,7 @@ public enum AiAndProviderDescriptor {
                 cliName: "aiand",
                 defaultEnabled: false,
                 widgetSelectable: false,
+                debugLogUnavailableMessage: "ai& debug log not yet implemented",
                 dashboardURL: "https://console.aiand.com",
                 statusPageURL: nil),
             branding: ProviderBranding(
