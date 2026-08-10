@@ -19,8 +19,19 @@ private enum QuickJSHostFunction: Int32 {
 }
 
 enum QuickJSRuntimeLimits {
-    /// Leave ample native-stack headroom for Swift entry frames and QuickJS's stack-overflow error construction.
-    static let nativeStackSizeBytes = 4 * 1024 * 1024
+    /// The dedicated worker thread's native stack. Sized far above the JavaScript budget so even a deep
+    /// Swift async/test baseline at the point JavaScript begins still leaves several MiB of physical stack.
+    static let nativeStackSizeBytes = 8 * 1024 * 1024
+
+    /// The JavaScript stack budget must sit well below the native stack it runs on, or QuickJS's overflow
+    /// guard fires with too little native headroom left to *construct* the RangeError and the throw path
+    /// itself faults (a hard crash observed only on CI runners with deep baseline frames; the guard is
+    /// unreliable at thin margins — quickjs-ng/zipline#1130 class). Deriving the JS limit as a quarter of
+    /// the actual worker stack makes the invariant hold for any stack size, including deliberately small
+    /// ones, so a misconfigured or starved thread throws cleanly instead of crashing.
+    static func javaScriptStackLimitBytes(workerStackSizeBytes: Int) -> Int {
+        max(64 * 1024, workerStackSizeBytes / 4)
+    }
 }
 
 private func quickJSHostCallback(
@@ -142,7 +153,6 @@ private final class QuickJSPluginValue: ProviderPluginValue {
 
 final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendable {
     static let memoryLimitBytes = 64 * 1024 * 1024
-    static let stackLimitBytes = 1 * 1024 * 1024
 
     static func transpileTypeScript(source: String, sucraseSource: String) throws -> String {
         try QuickJSTypeScriptTranspiler.transpile(source: source, sucraseSource: sucraseSource)
@@ -170,7 +180,7 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
     private let transport: any ProviderHTTPTransport
     private let timeout: TimeInterval
     private let responseSizeLimit: Int
-    private let rejectsNonSuccessResponses: Bool
+    private let enforcesUserResponsePolicy: Bool
     private var watchdog: OpaquePointer?
     private var definition: JSValue?
     private var applyPrelude: JSValue?
@@ -186,6 +196,10 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
         return loadedManifest
     }
 
+    private var rejectsNonSuccessResponses: Bool {
+        self.enforcesUserResponsePolicy && !self.manifest.capabilities.contains(.httpStatus)
+    }
+
     // swiftlint:disable:next function_parameter_count
     static func make(
         source: String,
@@ -193,7 +207,7 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
         transport: any ProviderHTTPTransport,
         timeout: TimeInterval,
         responseSizeLimit: Int,
-        rejectsNonSuccessResponses: Bool,
+        enforcesUserResponsePolicy: Bool,
         allowsDynamicID: Bool,
         workerStackSizeBytes: Int = QuickJSRuntimeLimits.nativeStackSizeBytes) throws -> QuickJSProviderPluginEngine
     {
@@ -205,7 +219,9 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
                 throw ProviderPluginError.load("QuickJS could not create a runtime")
             }
             JS_SetMemoryLimit(runtime, Self.memoryLimitBytes)
-            JS_SetMaxStackSize(runtime, Self.stackLimitBytes)
+            JS_SetMaxStackSize(
+                runtime,
+                QuickJSRuntimeLimits.javaScriptStackLimitBytes(workerStackSizeBytes: workerStackSizeBytes))
             guard let context = JS_NewContext(runtime) else {
                 JS_FreeRuntime(runtime)
                 throw ProviderPluginError.load("QuickJS could not create a context")
@@ -217,7 +233,7 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
                 transport: transport,
                 timeout: timeout,
                 responseSizeLimit: responseSizeLimit,
-                rejectsNonSuccessResponses: rejectsNonSuccessResponses)
+                enforcesUserResponsePolicy: enforcesUserResponsePolicy)
             try engine.load(source: source, preludeSource: preludeSource, allowsDynamicID: allowsDynamicID)
             return engine
         }
@@ -230,7 +246,7 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
         transport: any ProviderHTTPTransport,
         timeout: TimeInterval,
         responseSizeLimit: Int,
-        rejectsNonSuccessResponses: Bool)
+        enforcesUserResponsePolicy: Bool)
     {
         self.worker = worker
         self.runtime = runtime
@@ -238,7 +254,7 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
         self.transport = transport
         self.timeout = timeout
         self.responseSizeLimit = responseSizeLimit
-        self.rejectsNonSuccessResponses = rejectsNonSuccessResponses
+        self.enforcesUserResponsePolicy = enforcesUserResponsePolicy
     }
 
     deinit {
@@ -545,9 +561,15 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
                 throw ProviderPluginError.http("response exceeded the \(self.responseSizeLimit)-byte limit")
             }
             if self.rejectsNonSuccessResponses, !(200..<300).contains(response.statusCode) {
+                if let failure = ProviderPluginTransientHTTPFailure(
+                    statusCode: response.statusCode,
+                    retryAfterHeader: response.response.value(forHTTPHeaderField: "Retry-After"))
+                {
+                    throw failure
+                }
                 throw ProviderPluginError.http("request returned HTTP \(response.statusCode)")
             }
-            if self.rejectsNonSuccessResponses,
+            if self.enforcesUserResponsePolicy,
                let encoding = response.response.value(forHTTPHeaderField: "Content-Encoding"),
                !encoding.isEmpty,
                encoding.caseInsensitiveCompare("identity") != .orderedSame
@@ -701,7 +723,7 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
             }
         }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if self.rejectsNonSuccessResponses {
+        if self.enforcesUserResponsePolicy {
             request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         }
         if method == "POST" {
@@ -849,15 +871,8 @@ final class QuickJSProviderPluginEngine: ProviderPluginEngine, @unchecked Sendab
 
     private func failure(from value: JSValue, redactionValues: QuickJSRedactionValues) -> Error {
         let message = redactionValues.redact((try? self.message(from: value)) ?? "unknown plugin failure")
-        let marker = "__CODEXBAR_FAILURE__:"
-        if message.hasPrefix(marker),
-           let separator = message[message.index(message.startIndex, offsetBy: marker.count)...].firstIndex(of: ":"),
-           let kind = ProviderFetchClassifiedError.Kind(
-               rawValue: String(message[message.index(message.startIndex, offsetBy: marker.count)..<separator]))
-        {
-            return ProviderFetchClassifiedError(
-                kind: kind,
-                message: String(message[message.index(after: separator)...]))
+        if let classified = ProviderPluginClassifiedFailureParser.error(from: message) {
+            return classified
         }
         return ProviderPluginError.script(message)
     }
@@ -988,18 +1003,32 @@ private final class QuickJSSerialWorker: @unchecked Sendable {
         }
     }
 
+    /// A Thread subclass with an overridden main() instead of Thread(block:): the block closure
+    /// picks up @MainActor inference under some SDKs (Xcode 26.3), and the embedded executor
+    /// check then traps on the first job when the OS runtime enforces isolation dynamically.
+    private final class WorkerThread: Thread {
+        private let state: State
+
+        init(state: State) {
+            self.state = state
+            super.init()
+        }
+
+        override func main() {
+            defer { self.state.markStopped() }
+            while let job = self.state.next() {
+                job()
+            }
+        }
+    }
+
     private let state: State
-    private let thread: Thread
+    private let thread: WorkerThread
 
     init(name: String, stackSizeBytes: Int) {
         let state = State()
         self.state = state
-        self.thread = Thread {
-            defer { state.markStopped() }
-            while let job = state.next() {
-                job()
-            }
-        }
+        self.thread = WorkerThread(state: state)
         self.thread.name = name
         self.thread.stackSize = stackSizeBytes
         self.thread.start()
