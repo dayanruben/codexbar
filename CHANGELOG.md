@@ -1,8 +1,22 @@
 # Changelog
 
-## 0.49.1 — Unreleased
+## 0.49.2 — 2026-08-10
 
 ### Fixed
+- Sync: collapse duplicate usage rows for the same provider account across Macs, with the current Mac's configured result taking precedence over synced copies.
+- Menu cards: show session quota as exhausted until the final reset of every binding weekly/monthly plan lane, while preserving session-specific details and independent purchased credits (#2840). Thanks @Yuxin-Qiao!
+- Menu cards: keep primary usage values and long localized reset timestamps readable by stacking the row only when both cannot fit (#2846). Thanks @Yuxin-Qiao!
+- Plugins: honor the “Usage bars fill” remaining/used setting in user-installed provider cards, keeping percentage labels and bar direction aligned (#2749). Thanks @RyloRiz!
+- Sub2API: localize and group menu-card quota labels and request, token, and cost totals into a compact usage summary (#2835). Thanks @weirdo-adam!
+- Codex: avoid repeatedly converting historical token snapshots during cost-cache refreshes, preventing sustained CPU usage on large session histories.
+- Codex: make automatic cost-history catch-up near-idle and limit local-history scans to provider refreshes with a 15-minute energy floor.
+- Agent Sessions: stop inactive local and remote refresh schedulers from waking while monitoring is disabled.
+- Cost usage: refresh token-cost data when “Refresh all providers on menu open” is enabled, with a one-minute scan floor to avoid repeated work (#2388). Thanks @betive37!
+
+## 0.49.1 — 2026-08-09
+
+### Fixed
+- DeepInfra: show billing-cycle spend against a positive spending limit in the automatic menu-bar icon (#2822). Thanks @selfagency for the report!
 - z.ai: restore pace for verified 5-hour, weekly, and MCP-monthly usage windows without treating rolling 30-day limits as calendar months (#2431). Thanks @kiranmagic7!
 - Codex: publish refreshed core quota immediately while optional Credits and OpenAI Web enrichment continues, without unfreezing cards whose layout still needs reconciliation (#2799). Thanks @Yuxin-Qiao!
 - Menu bar: keep DeepSeek balances compact and consistent between saved custom layouts and their live editor preview (#2638). Thanks @Yuxin-Qiao!
