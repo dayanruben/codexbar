@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.49.3 — Unreleased
+
+### Fixed
+- Codex: avoid full SQLite cost-cache rewrites for unchanged scans while preserving retention, freshness, and concurrent saves (#2852). Thanks @Yuxin-Qiao!
+- Azure OpenAI: allow enough v1 completion budget for reasoning-capable deployment validation while keeping the probe bounded (#2867). Thanks @yilinxia!
+- Codex: preserve request-level pricing tiers while reconciling forked usage, preventing day aggregates from triggering long-context rates (#2858). Thanks @thomaschow19!
+- CLI: stop standalone version lookup from walking past the filesystem root and hanging with unbounded memory on affected macOS versions (#2856). Thanks @Manwholikespie!
+- Cost store: prevent launch-time executor-assumption crashes on macOS 15 by keeping synchronous SQLite cache bridges on their validated serial queue (#2857). Thanks @Manwholikespie!
+
 ## 0.49.2 — 2026-08-10
 
 ### Fixed
