@@ -478,7 +478,7 @@ extension UsageMenuCardView.Model {
         } else if input.provider == .crof {
             CrofProviderDescriptor.primaryLabel(snapshot: snapshot)
         } else if input.provider == .grok {
-            GrokProviderDescriptor.primaryLabel(window: snapshot.primary, now: input.now) ?? input.metadata.sessionLabel
+            GrokProviderDescriptor.displayLabel(window: snapshot.primary, now: input.now) ?? input.metadata.sessionLabel
         } else if input.provider == .doubao {
             DoubaoProviderDescriptor.primaryLabel(window: snapshot.primary) ?? input.metadata.sessionLabel
         } else if input.provider == .sub2api {
@@ -784,10 +784,13 @@ extension UsageMenuCardView.Model {
     static func antigravityMetrics(input: Input, snapshot: UsageSnapshot) -> [Metric] {
         let percentStyle: PercentStyle = input.usageBarsShowUsed ? .used : .left
         if Self.hasAntigravityQuotaSummaryWindows(snapshot) {
-            return Self.extraRateWindowMetrics(
+            let metrics = Self.extraRateWindowMetrics(
                 snapshot: snapshot,
                 input: input,
                 percentStyle: percentStyle)
+            guard !input.showsAllUsageLanes else { return metrics }
+            let idleIDs = AntigravityQuotaFamilyVisibility.idleWindowIDs(in: snapshot)
+            return idleIDs.isEmpty ? metrics : metrics.filter { !idleIDs.contains($0.id) }
         }
 
         var metrics: [Metric] = []

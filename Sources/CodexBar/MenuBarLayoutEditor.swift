@@ -43,6 +43,10 @@ struct MenuBarLayoutDragItem: Codable, Hashable, Transferable, Sendable {
     static let lineBreak = Self(content: .lineBreak, source: nil, sourceLayout: nil)
 }
 
+enum MenuBarLayoutPaletteTokens {
+    static let time: [MenuBarLayoutToken] = [.resetCountdown, .resetAbsolute, .runsOut, .runsOutCompact]
+}
+
 enum MenuBarLayoutEditorMutations {
     static func append(_ component: MenuBarLayoutToken, to layout: MenuBarLayout) -> MenuBarLayout {
         var lines = layout.lines
@@ -255,7 +259,7 @@ struct MenuBarLayoutEditor: View {
             MenuBarLayoutPaletteGroup(
                 id: "time",
                 title: L("menu_bar_layout_group_time"),
-                tokens: [.resetCountdown, .resetAbsolute, .runsOut],
+                tokens: MenuBarLayoutPaletteTokens.time,
                 includesLineBreak: false),
             MenuBarLayoutPaletteGroup(
                 id: "money",
@@ -704,7 +708,12 @@ struct MenuBarLayoutPreview: View {
         let scopedNamed = MenuBarLayoutSemanticWindowResolver.scopedWeeklyNamedWindow(snapshot: snapshot)
         let paceWindow = weekly ?? automatic
         let runsOut = paceWindow
-            .flatMap { self.store.weeklyPace(provider: provider, window: $0, now: now) }
+            .flatMap {
+                self.store.weeklyPace(
+                    provider: provider,
+                    window: $0,
+                    now: now)
+            }
             .flatMap { UsagePaceText.weeklyDetail(provider: provider, pace: $0, now: now).rightLabel }
         let cost = self.store.tokenSnapshotForCurrentProviderConfig(for: provider)?.snapshot
         let costToday = MenuBarLayoutCostResolver.todayCostUSD(snapshot: cost, now: now)
@@ -718,9 +727,19 @@ struct MenuBarLayoutPreview: View {
             scopedWeekly: MenuBarLayoutRenderWindow(scopedNamed?.window),
             scopedWeeklyTitle: scopedNamed?.title,
             automatic: MenuBarLayoutRenderWindow(automatic),
-            sessionPace: self.store.menuBarLayoutPaceText(provider: provider, window: session, now: now),
-            weeklyPace: self.store.menuBarLayoutPaceText(provider: provider, window: weekly, now: now),
-            automaticPace: self.store.menuBarLayoutPaceText(provider: provider, window: automatic, now: now),
+            sessionPace: self.store.menuBarLayoutPaceText(
+                provider: provider,
+                window: session,
+                now: now),
+            weeklyPace: self.store.menuBarLayoutPaceText(
+                provider: provider,
+                window: weekly,
+                now: now,
+                minimumElapsedPercent: 1),
+            automaticPace: self.store.menuBarLayoutPaceText(
+                provider: provider,
+                window: automatic,
+                now: now),
             runsOut: runsOut,
             balance: MenuBarLayoutBalanceResolver.balance(provider: provider, snapshot: snapshot),
             costToday: costToday.map {
@@ -766,7 +785,7 @@ struct MenuBarLayoutPreview: View {
             sessionPace: samplePace(session),
             weeklyPace: samplePace(weekly),
             automaticPace: samplePace(session),
-            runsOut: L("menu_bar_layout_sample_runs_out"),
+            runsOut: L("Runs out in %@", "1d 16h"),
             // Provider-specific by design: only OpenRouter previews the Balance palette token.
             balance: provider == .openrouter ? "$12.34" : nil,
             costToday: "$1.25",
@@ -883,6 +902,7 @@ extension MenuBarLayoutToken {
         case .resetCountdown: L("menu_bar_layout_token_resets_in")
         case .resetAbsolute: L("menu_bar_layout_token_reset_at")
         case .runsOut: L("menu_bar_layout_token_runs_out")
+        case .runsOutCompact: "\(L("menu_bar_layout_token_runs_out")) (compact)"
         case .balance: L("Balance")
         case .costToday: L("menu_bar_layout_token_cost_today")
         case .cost30d: L("menu_bar_layout_token_cost_30d")
@@ -908,7 +928,7 @@ extension MenuBarLayoutToken {
         case .usageBar: "chart.bar.fill"
         case .resetCountdown: "timer"
         case .resetAbsolute: "clock"
-        case .runsOut: "hourglass.bottomhalf.filled"
+        case .runsOut, .runsOutCompact: "hourglass.bottomhalf.filled"
         case .balance: "creditcard"
         case .costToday: "dollarsign.circle"
         case .cost30d: "calendar.badge.clock"

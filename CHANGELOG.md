@@ -1,8 +1,32 @@
 # Changelog
 
-## 0.49.5 — Unreleased
+## 0.49.7 — Unreleased
+
+### Added
+- Cost history: add a Tokens/Cost switch to daily status-menu charts, defaulting Codex to exact local token totals and marking incomplete local history as refreshing (#2930). Thanks @Carl723000!
+- Menu bar layout: add a compact run-out forecast token that shows only the predicted duration (#2865). Thanks @gnattu!
 
 ### Fixed
+- Grok: label the current weekly credit window near reset instead of falling back to the ambiguous “Credits” title (#2929). Thanks @byteofsam!
+- Codex: show Business accounts' monthly credit remaining in the provider switcher when no session or weekly rate-limit window is available, and keep quota indicators visible on the selected provider tab (#2926). Thanks @jey3dayo!
+- Gemini: offer the Antigravity provider migration when local OAuth recovery cannot use Gemini CLI and an `agy` or Antigravity installation is available (#2808). Thanks @axisrow!
+- Provider status: omit status-page transport errors from menus until a real status fetch succeeds, while preserving the last successful status through later fetch failures (#2925). Thanks @tomarai85!
+
+## 0.49.6 — 2026-08-14
+
+### Fixed
+- Antigravity: hide untouched model families from compact menu cards and widgets while keeping unknown-usage families visible and preserving every family in provider details and all-untouched states (#2875). Thanks @urda!
+- Menu bar layout: show the weekly pace reserve token after 1% of the quota window has elapsed, even when learned history still predicts less than 1% expected usage (#2842, #2853). Thanks @Yuxin-Qiao!
+- Amp: support monthly Megawatt and Gigawatt subscription renewals with separate Other and Orb usage pools, and reset the daily free tier at 8:00 PM New York time (#2601). Thanks @3kh0!
+- Ollama: allow the `auto` and `web` usage sources on Linux when a non-empty manual Cookie header is configured, while keeping automatic browser-cookie imports gated to supported platforms (#2919). Thanks @dhabyx!
+- Codex: preserve the wider retained cost history when Usage & Spend saves a 7- or 30-day projection under cache row/byte pressure, instead of pruning older rows and narrowing the persisted scan window (#2914, #2915). Thanks @thomaschow19!
+- Claude: reuse the last successful CLI usage result for 15 minutes during background refreshes instead of relaunching the ~280 MB Claude Code binary on every tick, cutting background disk reads and process churn for CLI-sourced usage; manual refreshes still probe immediately (#2916).
+- CLI (Linux): stop creating and invalidating a URLSession per Antigravity localhost request; per-request session teardown exercised a FoundationNetworking/libdispatch socket-lifecycle race that could crash serve daemons and one-shot usage runs with a use-after-free (#2243). Thanks @psl75011 for the crash forensics!
+
+## 0.49.5 — 2026-08-13
+
+### Fixed
+- OpenCode: show pay-as-you-go monthly spend and prepaid balance instead of failing with HTTP 500 when the workspace has no subscription, without misclassifying subscription accounts after a transient API failure (#2504, fixes #2697). Thanks @epoch-chrono for the fix and @CripWal for the report!
 - Grok: restore web billing after grok.com's credits endpoint began requiring a browser-held WKE credential, by reading the weekly credit pool from the Grok CLI billing API with the local grok login token, and clarify the cookie-rejection guidance (#2812). Thanks @wxhnewStar!
 - Settings: keep the Settings window on the active Stage Manager stage/Space via `.moveToActiveSpace`, and key only newly presented Settings/update dialogs when Dock promotion runs (#2833). Thanks @KGBos!
 - Codex: keep large Usage & Spend history indexing bounded, durable across relaunches, and resumable after appends without replaying completed sessions (#2815, #2849). Thanks @Quicksaver for the fix and @Yoroin, @xiehaibin18, and @Astro-Han for reports and diagnostics!

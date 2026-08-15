@@ -418,7 +418,7 @@ extension UsageStore {
                 return "Requests"
             }
             if provider == .grok,
-               let dyn = GrokProviderDescriptor.primaryLabel(window: snapshot.primary)
+               let dyn = GrokProviderDescriptor.displayLabel(window: snapshot.primary)
             {
                 return dyn
             }
@@ -493,7 +493,9 @@ extension UsageStore {
         }), !windows.isEmpty else {
             return nil
         }
-        return windows.map { namedWindow in
+        // Match the menu card and drop model families the account never touches.
+        let idleIDs = AntigravityQuotaFamilyVisibility.idleWindowIDs(in: snapshot)
+        return windows.filter { !idleIDs.contains($0.id) }.map { namedWindow in
             WidgetSnapshot.WidgetUsageRowSnapshot(
                 id: namedWindow.id,
                 title: namedWindow.title,
