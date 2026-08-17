@@ -1,6 +1,42 @@
 # Changelog
 
-## 0.50.1 — Unreleased
+## 0.51.1 — Unreleased
+
+## 0.51.0 — 2026-08-16
+
+### Added
+- CLI: add `codexbar cost --group-by session` for per-conversation Codex session cost breakdowns in text output (#2854). Thanks @Yuxin-Qiao!
+
+### Fixed
+- Keychain: keep background browser imports non-interactive, honor the global access gate, retire the obsolete prompt-capable startup migration, and retry unreadable unified migrations without clearing secrets (#2986).
+- OpenCode Go: label local-only quota windows as estimates in the menu and CLI when Auto has no server-confirmed usage (#2982). Thanks @Newarr!
+
+## 0.50.1 — 2026-08-16
+
+### Added
+- Kiro: add an explicit Re-authenticate action that runs `kiro-cli login`, surfaces device-flow instructions, and refreshes usage only after a successful login (#2340). Thanks @Vit129!
+- Providers: add a per-provider accent color override with a hex field, a color well, and a reset to the shipped color; it applies to usage bars, charts, switcher tabs, widgets, and the `codexbar serve` dashboard, and syncs across Macs (#2972). Thanks @urda!
+- Usage bars: make workday tick marks configurable with hidden, subtle, and high-contrast appearances (#2904, #2950). Thanks @dstier-git!
+- Settings: allow minimizing the Settings window while keeping its Dock tile available for restoring it (#2945). Thanks @Yuxin-Qiao!
+- Widgets: opt-in display of Claude model-scoped weekly quotas (for example Fable) projected from the shared usage snapshot, off by default (#2645). Thanks @alfredjbclaw!
+
+### Fixed
+- Claude: let Auto reuse a working CLI fallback when OAuth Keychain access is revoked by Claude Code token rotation, distinguish revoked access from missing credentials, and keep last-known quota history visible with its capture age when every live source fails (#2516). Thanks @axisrow and everyone who supplied forensics!
+- Menu: apply the cost summary display style to every provider's menu card, so Submenu only hides inline cost rows for z.ai and other providers (#2976). Thanks @ar0nbg!
+- Cost history: align x-axis date labels with their bars in status-menu charts (#2974). Thanks @Yuxin-Qiao!
+- Codex: preserve completed empty local history as known-zero usage and spend without fabricating zeroes for incomplete scans (#2932). Thanks @Yuxin-Qiao!
+- Codex: keep CLI-owned `auth.json` read-only during usage refresh, delegate stale native credentials to CLI recovery, and fail closed for stale external OAuth files (#2944). Thanks @Yuxin-Qiao!
+- Usage & Spend: keep safely priced Codex totals visible after completed history scans when request-tier uncertainty leaves some days unpriced (#2948). Thanks @Atopoz for the report!
+- Vertex AI: match Cloud Monitoring quota usage without a `limit_name` to its unambiguous same-metric, same-location limit, restoring quota percentages (#2958). Thanks @MachApple!
+- Cursor: rename the included-usage split to Cursor and Third Party across menu, widgets, and menu-bar windows, matching Cursor's dashboard labels (#2951). Thanks @baanish!
+- OpenCode Go: report pace for the 5-hour and weekly usage windows in CLI text and JSON output (#2957). Thanks @kentoku24!
+- Mistral: show current-month API spend in Icon and Percent menu-bar layouts when pay-as-you-go accounts have no rate window (#2821, #2947). Thanks @kiranmagic7!
+- CLI: keep Codex app-server notifications and child diagnostics behind verbose logging instead of writing them to stderr on every probe (#2952). Thanks @urda!
+- Ollama: strip copied `Cookie:` and cURL syntax before sending manual WorkOS session headers when another cookie appears first (#2949). Thanks @Skythrill256!
+- Antigravity: render one lane per quota bucket on the serve dashboard and in `codexbar dashboard`, instead of repeating two buckets as extra "Gemini Models" and "Claude and GPT" rows (#2963). Thanks @urda!
+- Serve: follow the app's "Hide personal information" setting on the web dashboard when no `--identity` flag is given, resolving the mode per request so the toggle applies without a serve restart (#2960). Thanks @urda!
+- Codex cost: price provider-qualified routed models (OpenCodex, DeepSeek, Kimi routes) against their matching models.dev provider, keeping unknown route prefixes unpriced instead of falling back to OpenAI rates (#2946). Thanks @Yuxin-Qiao!
+- CLI releases: record only the asset basename in release checksum sidecars so `sha256sum -c` verifies downloads anywhere, instead of embedding runner-local absolute paths (#2971, #2973). Thanks @shockbladenull!
 
 ## 0.50.0 — 2026-08-15
 

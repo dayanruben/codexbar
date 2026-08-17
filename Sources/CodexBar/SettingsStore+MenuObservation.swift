@@ -23,6 +23,7 @@ extension SettingsStore {
         _ = self.quotaWarningOnScreenAlertEnabled
         _ = self.quotaWarningMarkersVisible
         _ = self.weeklyProgressWorkDays
+        _ = self.workdayTickAppearance
         _ = self.usageBarsShowUsed
         _ = self.resetTimesShowAbsolute
         _ = self.providerChangelogLinksEnabled
@@ -59,6 +60,7 @@ extension SettingsStore {
         _ = self.copilotBudgetExtrasEnabled
         _ = self.showOptionalCreditsAndExtraUsage
         _ = self.claudeDailyRoutinesUsageVisible
+        _ = self.claudeModelScopedWeeklyUsageVisible
         _ = self.codexSparkUsageVisible
         _ = self.openAIWebAccessEnabled
         _ = self.openAIWebBatterySaverEnabled

@@ -24,6 +24,7 @@ struct SettingsDefaultsState {
     var quotaWarningOnScreenAlertEnabled: Bool
     var quotaWarningMarkersVisible: Bool
     var weeklyProgressWorkDays: Int?
+    var workdayTickAppearanceRaw: String
     var usageBarsShowUsed: Bool
     var resetTimesShowAbsolute: Bool
     var providerChangelogLinksEnabled: Bool
@@ -59,7 +60,9 @@ struct SettingsDefaultsState {
     var claudeWebExtrasEnabledRaw: Bool
     var showOptionalCreditsAndExtraUsage: Bool
     var claudeDailyRoutinesUsageVisible: Bool
+    var claudeModelScopedWeeklyUsageVisible: Bool
     var codexSparkUsageVisible: Bool
+    var codexExternalOAuthSourcesAllowed: Bool
     var openAIWebAccessEnabled: Bool
     var openAIWebBatterySaverEnabled: Bool
     var backgroundWorkLowPowerModeEnabled: Bool

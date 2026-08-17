@@ -17,32 +17,37 @@ struct SettingsWindowOpener {
         case failed
     }
 
+    private let prepare: @MainActor () -> Void
     private let notification: @MainActor () -> Bool
     private let appKit: @MainActor () -> Bool
 
     init(
+        prepare: @escaping @MainActor () -> Void = {},
         notification: @escaping @MainActor () -> Bool,
         appKit: @escaping @MainActor () -> Bool)
     {
+        self.prepare = prepare
         self.notification = notification
         self.appKit = appKit
     }
 
     static func live() -> Self {
         Self(
+            prepare: {
+                DockIconController.shared.prepareToOpenSettings()
+            },
             notification: {
-                DockIconController.shared.promote()
                 let request = SettingsOpenRequest()
                 NotificationCenter.default.post(name: .codexbarOpenSettings, object: request)
                 return request.wasHandled
             },
             appKit: {
-                DockIconController.shared.promote()
-                return NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+                NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
             })
     }
 
     func open(preferred: Path) -> Outcome {
+        self.prepare()
         let attempts = preferred == .notification
             ? [self.notification, self.appKit]
             : [self.appKit, self.notification]
@@ -68,12 +73,6 @@ struct HiddenWindowView: View {
                 Task { @MainActor in
                     self.openSettings()
                 }
-            }
-            .task {
-                // Migrate keychain items to reduce permission prompts during development (runs off main thread)
-                await Task.detached(priority: .userInitiated) {
-                    KeychainMigration.migrateIfNeeded()
-                }.value
             }
     }
 }
