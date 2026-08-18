@@ -1,5 +1,8 @@
 /* English localization for CodexBar (base/fallback) */
 
+"+ %d more" = "+ %d more";
+"Conversations (%@)" = "Conversations (%@)";
+"Fast" = "Fast";
 "ollama_safari_cookie_access_hint" = "Safari cookies need Full Disk Access for CodexBar (System Settings > Privacy & Security).";
 "ollama_browser_cookie_decryption_denied" = "%@ cookie decryption was declined in Keychain. Open the provider card and click Refresh (⌘R) to request Keychain access again.";
 "ollama_browser_cookie_decryption_disabled" = "%@ cookie decryption is disabled in CodexBar; enable Keychain access and refresh.";
@@ -111,6 +114,11 @@
 "Could not switch system account" = "Could not switch system account";
 "Credits" = "Credits";
 "Individual credits" = "Individual credits";
+"Projects" = "Projects";
+"Session %@" = "Session %@";
+"Std" = "Std";
+"Show all (%d)" = "Show all (%d)";
+"Show less" = "Show less";
 "Workspace" = "Workspace";
 "Credits history" = "Credits history";
 "Cursor login failed" = "Cursor login failed";
@@ -1292,6 +1300,9 @@
 "Native currencies stay separate; Codex account rows exclude Pi session history." = "Native currencies stay separate; Codex account rows exclude Pi session history.";
 "Spend unavailable" = "Spend unavailable";
 "Model breakdown unavailable" = "Model breakdown unavailable";
+"Partial estimate" = "Partial estimate";
+"Partial model breakdown" = "Partial model breakdown";
+"%d of %d subscriptions have spend" = "%d of %d subscriptions have spend";
 "Local estimated history" = "Local estimated history";
 "Coverage" = "Coverage";
 "Estimated spend" = "Estimated spend";

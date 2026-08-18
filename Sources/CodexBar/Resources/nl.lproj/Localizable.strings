@@ -1,7 +1,15 @@
 /* Dutch localization for CodexBar */
 
 /* iCloud Sync */
+"+ %d more" = "+ %d meer";
+"Conversations (%@)" = "Gesprekken (%@)";
+"Fast" = "Snel";
 "iCloud Sync" = "iCloud Sync";
+"Projects" = "Projecten";
+"Session %@" = "Sessie %@";
+"Std" = "Std";
+"Show all (%d)" = "Alles tonen (%d)";
+"Show less" = "Minder tonen";
 "Sync settings and providers across your Macs via iCloud" = "Sync settings and providers across your Macs via iCloud";
 "Include API keys, cookies, and tokens" = "Include API keys, cookies, and tokens";
 "Sync usage snapshots" = "Sync usage snapshots";
@@ -1308,6 +1316,9 @@
 "Native currencies stay separate; Codex account rows exclude Pi session history." = "Oorspronkelijke valuta’s blijven gescheiden; rijen met Codex-accounts sluiten Pi-sessiegeschiedenis uit.";
 "Spend unavailable" = "Uitgaven niet beschikbaar";
 "Model breakdown unavailable" = "Uitsplitsing per model niet beschikbaar";
+"Partial estimate" = "Gedeeltelijke schatting";
+"Partial model breakdown" = "Gedeeltelijke modeluitsplitsing";
+"%d of %d subscriptions have spend" = "%d van %d abonnementen hebben uitgaven";
 "Local estimated history" = "Lokaal geschatte geschiedenis";
 "Coverage" = "Dekking";
 "Estimated spend" = "Geschatte uitgaven";

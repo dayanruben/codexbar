@@ -1,7 +1,15 @@
 /* Korean (한국어) localization for CodexBar */
 
 /* iCloud Sync */
+"+ %d more" = "+ %d개 더";
+"Conversations (%@)" = "대화 (%@)";
+"Fast" = "빠름";
 "iCloud Sync" = "iCloud Sync";
+"Projects" = "프로젝트";
+"Session %@" = "세션 %@";
+"Std" = "표준";
+"Show all (%d)" = "모두 보기(%d)";
+"Show less" = "간략히 보기";
 "Sync settings and providers across your Macs via iCloud" = "Sync settings and providers across your Macs via iCloud";
 "Include API keys, cookies, and tokens" = "Include API keys, cookies, and tokens";
 "Sync usage snapshots" = "Sync usage snapshots";
@@ -1276,6 +1284,9 @@
 "Native currencies stay separate; Codex account rows exclude Pi session history." = "각 통화는 별도로 유지되며 Codex 계정 행에서는 Pi 세션 기록이 제외됩니다.";
 "Spend unavailable" = "지출 정보 없음";
 "Model breakdown unavailable" = "모델별 내역을 사용할 수 없습니다";
+"Partial estimate" = "부분 추정치";
+"Partial model breakdown" = "부분 모델 내역";
+"%d of %d subscriptions have spend" = "%d / %d개 구독에 지출 데이터가 있습니다";
 "Local estimated history" = "로컬 예상 내역";
 "Coverage" = "포함 범위";
 "Estimated spend" = "예상 지출";
