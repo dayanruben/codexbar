@@ -11,6 +11,10 @@ struct SpendDashboardConfiguration: Equatable, Sendable {
     let codexAccountDisplayNames: [String: String]
     let sourceOwnershipFingerprints: [String]
     let sourceRevisions: [String]
+    let bucketTimeZoneIdentifier: String
+    let openCodexUsageLogsEnabled: Bool
+    let hideNativeCodexCostWhenOpenCodexPresent: Bool
+    let hiddenSourceIDs: [String]
 
     init(
         costUsageEnabled: Bool,
@@ -19,7 +23,11 @@ struct SpendDashboardConfiguration: Equatable, Sendable {
         codexAccountIdentities: [String],
         codexAccountDisplayNames: [String: String] = [:],
         sourceOwnershipFingerprints: [String] = [],
-        sourceRevisions: [String] = [])
+        sourceRevisions: [String] = [],
+        bucketTimeZoneIdentifier: String = "",
+        openCodexUsageLogsEnabled: Bool = false,
+        hideNativeCodexCostWhenOpenCodexPresent: Bool = false,
+        hiddenSourceIDs: [String] = [])
     {
         self.costUsageEnabled = costUsageEnabled
         self.preferredCurrencyCode = preferredCurrencyCode
@@ -28,6 +36,14 @@ struct SpendDashboardConfiguration: Equatable, Sendable {
         self.codexAccountDisplayNames = codexAccountDisplayNames
         self.sourceOwnershipFingerprints = sourceOwnershipFingerprints
         self.sourceRevisions = sourceRevisions
+        self.bucketTimeZoneIdentifier = bucketTimeZoneIdentifier
+        self.openCodexUsageLogsEnabled = openCodexUsageLogsEnabled
+        self.hideNativeCodexCostWhenOpenCodexPresent = hideNativeCodexCostWhenOpenCodexPresent
+        self.hiddenSourceIDs = hiddenSourceIDs
+    }
+
+    var bucketCalendar: Calendar {
+        CostUsageBucketTimeZone.calendar(identifier: self.bucketTimeZoneIdentifier)
     }
 }
 
@@ -115,6 +131,7 @@ struct CodexSpendSnapshotLoadContext: Sendable {
     let historyDays: Int
     let refreshPricingInBackground: Bool
     let includePiSessions: Bool
+    let calendar: Calendar
 }
 
 enum SpendDashboardSource {
@@ -161,7 +178,11 @@ enum SpendDashboardSource {
                 providers: providers,
                 settings: settings,
                 store: store),
-            sourceRevisions: self.sourceRevisions(providers: providers, settings: settings, store: store))
+            sourceRevisions: self.sourceRevisions(providers: providers, settings: settings, store: store),
+            bucketTimeZoneIdentifier: settings.costUsageBucketTimeZoneIdentifier,
+            openCodexUsageLogsEnabled: settings.openCodexUsageLogsEnabled,
+            hideNativeCodexCostWhenOpenCodexPresent: settings.hideNativeCodexCostWhenOpenCodexPresent,
+            hiddenSourceIDs: settings.spendDashboardHiddenSourceIDs)
     }
 
     @MainActor
@@ -295,13 +316,14 @@ enum SpendDashboardSource {
             request,
             cacheRootResolver: cacheRootResolver,
             cachedCodexSnapshotLoader: { context in
-                await CostUsageFetcher(cacheRoot: context.cacheRoot)
+                await CostUsageFetcher(cacheRoot: context.cacheRoot, calendar: context.calendar)
                     .loadCachedCodexTokenSnapshotForScopedHome(
                         now: context.now,
                         codexHomePath: context.account.homePath,
                         historyDays: context.historyDays,
                         includePiSessions: false,
-                        includeProjectAndSessionBreakdowns: true)
+                        includeProjectAndSessionBreakdowns: true,
+                        calendar: context.calendar)
             })
     }
 
@@ -325,14 +347,12 @@ enum SpendDashboardSource {
             guard !Task.isCancelled,
                   self.currentAuthFingerprint(for: account) == account.authFingerprint
             else { continue }
-            let snapshot = await cachedCodexSnapshotLoader(CodexSpendSnapshotLoadContext(
+            let snapshot = await cachedCodexSnapshotLoader(self.snapshotContext(
                 account: account,
                 cacheRoot: cacheRootResolver(account),
-                now: request.now,
+                request: request,
                 force: false,
-                historyDays: Self.scanDays,
-                refreshPricingInBackground: false,
-                includePiSessions: false))
+                historyDays: Self.scanDays))
             guard !Task.isCancelled,
                   let snapshot,
                   self.currentAuthFingerprint(for: account) == account.authFingerprint
@@ -344,7 +364,9 @@ enum SpendDashboardSource {
                 modelProviderName: ProviderDescriptorRegistry.descriptor(for: .codex).metadata.displayName,
                 snapshot: snapshot))
         }
-        return SpendDashboardLoadResult(inputs: inputs, failedSourceIDs: request.unavailableSourceIDs)
+        return SpendDashboardLoadResult(
+            inputs: self.mergingOpenCodexInputs(inputs, request: request),
+            failedSourceIDs: request.unavailableSourceIDs)
     }
 
     static func load(
@@ -388,23 +410,19 @@ enum SpendDashboardSource {
                     continue
                 }
                 let cacheRoot = cacheRootResolver(account)
-                let snapshot = try await codexSnapshotLoader(CodexSpendSnapshotLoadContext(
+                let snapshot = try await codexSnapshotLoader(self.snapshotContext(
                     account: account,
                     cacheRoot: cacheRoot,
-                    now: request.now,
+                    request: request,
                     force: request.force,
-                    historyDays: Self.scanDays,
-                    refreshPricingInBackground: false,
-                    includePiSessions: false))
+                    historyDays: Self.scanDays))
                 try Task.checkCancellation()
-                let tokenActivityCache = await codexActivityLoader(CodexSpendSnapshotLoadContext(
+                let tokenActivityCache = await codexActivityLoader(self.snapshotContext(
                     account: account,
                     cacheRoot: cacheRoot,
-                    now: request.now,
+                    request: request,
                     force: false,
-                    historyDays: Self.activityDays,
-                    refreshPricingInBackground: false,
-                    includePiSessions: false))
+                    historyDays: Self.activityDays))
                 try Task.checkCancellation()
                 guard self.codexAuthFingerprintMatches(account) else {
                     failedSourceIDs.insert(sourceID)
@@ -437,15 +455,126 @@ enum SpendDashboardSource {
         invalidatedSourceIDs.formUnion(lateInvalidatedSourceIDs)
         inputs.removeAll { lateInvalidatedSourceIDs.contains($0.id) }
         return SpendDashboardLoadResult(
-            inputs: inputs,
+            inputs: self.mergingOpenCodexInputs(inputs, request: request),
             failedSourceIDs: failedSourceIDs,
             invalidatedSourceIDs: invalidatedSourceIDs)
+    }
+
+    private static func snapshotContext(
+        account: CodexSpendScanRequest,
+        cacheRoot: URL,
+        request: SpendDashboardLoadRequest,
+        force: Bool,
+        historyDays: Int) -> CodexSpendSnapshotLoadContext
+    {
+        CodexSpendSnapshotLoadContext(
+            account: account,
+            cacheRoot: cacheRoot,
+            now: request.now,
+            force: force,
+            historyDays: historyDays,
+            refreshPricingInBackground: false,
+            includePiSessions: false,
+            calendar: request.configuration.bucketCalendar)
+    }
+
+    static func mergingOpenCodexInputs(
+        _ inputs: [SpendDashboardModel.ProviderInput],
+        request: SpendDashboardLoadRequest) -> [SpendDashboardModel.ProviderInput]
+    {
+        guard request.configuration.openCodexUsageLogsEnabled,
+              !request.configuration.hiddenSourceIDs.contains(SpendDashboardModel.openCodexSourceID)
+        else { return inputs.filter { $0.id != SpendDashboardModel.openCodexSourceID } }
+        let environment = ProcessInfo.processInfo.environment
+        guard let logURL = OpenCodexUsageLog.usageLogURL(environment: environment) else { return inputs }
+        let store = OpenCodexUsageStore(cacheRoot: OpenCodexUsageLog.cacheRoot())
+        guard let entries = try? store.loadEntries(logURL: logURL),
+              !entries.isEmpty
+        else { return inputs.filter { $0.id != SpendDashboardModel.openCodexSourceID } }
+
+        let snapshots = OpenCodexUsageFanOut.snapshotsBySubscription(
+            entries: entries,
+            now: request.now,
+            historyDays: Self.scanDays,
+            calendar: request.configuration.bucketCalendar)
+        var merged = inputs.filter { $0.id != SpendDashboardModel.openCodexSourceID }
+
+        for (provider, supplement) in snapshots {
+            guard Self.shouldPublishOpenCodexSnapshot(supplement) else { continue }
+            // Provider-specific by design: hide-native keeps OpenCodex on its own Codex row
+            // so visibleInputs can drop overlapping native Codex snapshots.
+            if provider == .codex,
+               request.configuration.hideNativeCodexCostWhenOpenCodexPresent
+            {
+                merged.append(SpendDashboardModel.ProviderInput(
+                    provider: provider,
+                    displayName: ProviderDescriptorRegistry.descriptor(for: provider).metadata.displayName,
+                    snapshot: supplement,
+                    sourceKind: .openCodex))
+                continue
+            }
+            if let index = Self.preferredMergeIndex(for: provider, in: merged) {
+                merged[index] = Self.mergeProviderInput(
+                    merged[index],
+                    supplement: supplement,
+                    request: request)
+            } else {
+                merged.append(SpendDashboardModel.ProviderInput(
+                    provider: provider,
+                    displayName: ProviderDescriptorRegistry.descriptor(for: provider).metadata.displayName,
+                    snapshot: supplement,
+                    sourceKind: .openCodex))
+            }
+        }
+        return merged
+    }
+
+    static func preferredMergeIndex(
+        for provider: UsageProvider,
+        in inputs: [SpendDashboardModel.ProviderInput]) -> Int?
+    {
+        // Provider-specific by design: OpenCodex fan-out merges into the native Codex subscription row when exactly one
+        // exists.
+        if provider == .codex {
+            let codexIndices = inputs.indices.filter { inputs[$0].provider == .codex }
+            guard codexIndices.count == 1 else { return nil }
+            return codexIndices.first
+        }
+        let matching = inputs.indices.filter { inputs[$0].provider == provider }
+        guard matching.count == 1 else {
+            return inputs.firstIndex(where: { $0.provider == provider && $0.sourceKind == .native })
+        }
+        return matching.first
+    }
+
+    private static func mergeProviderInput(
+        _ input: SpendDashboardModel.ProviderInput,
+        supplement: CostUsageTokenSnapshot,
+        request: SpendDashboardLoadRequest) -> SpendDashboardModel.ProviderInput
+    {
+        SpendDashboardModel.ProviderInput(
+            id: input.id,
+            provider: input.provider,
+            displayName: input.displayName,
+            modelProviderName: input.modelProviderName,
+            snapshot: OpenCodexUsageFanOut.mergeSnapshots(
+                input.snapshot,
+                supplement,
+                now: request.now,
+                historyDays: self.scanDays,
+                calendar: request.configuration.bucketCalendar),
+            tokenActivityCache: input.tokenActivityCache,
+            sourceKind: input.sourceKind)
+    }
+
+    static func shouldPublishOpenCodexSnapshot(_ snapshot: CostUsageTokenSnapshot) -> Bool {
+        !snapshot.daily.isEmpty || !snapshot.sessions.isEmpty
     }
 
     private static func loadCodexSnapshot(
         _ context: CodexSpendSnapshotLoadContext) async throws -> CostUsageTokenSnapshot
     {
-        try await CostUsageFetcher(cacheRoot: context.cacheRoot).loadTokenSnapshot(
+        try await CostUsageFetcher(cacheRoot: context.cacheRoot, calendar: context.calendar).loadTokenSnapshot(
             provider: .codex,
             environment: CodexHomeScope.scopedEnvironment(base: [:], codexHome: context.account.homePath),
             now: context.now,
@@ -459,7 +588,7 @@ enum SpendDashboardSource {
     private static func loadCodexActivity(
         _ context: CodexSpendSnapshotLoadContext) async -> CostUsageTokenActivityCache?
     {
-        await CostUsageFetcher(cacheRoot: context.cacheRoot).loadCachedCodexTokenActivity(
+        await CostUsageFetcher(cacheRoot: context.cacheRoot, calendar: context.calendar).loadCachedCodexTokenActivity(
             now: context.now,
             codexHomePath: context.account.homePath,
             maximumDays: context.historyDays)
@@ -503,6 +632,9 @@ enum SpendDashboardSource {
         var revisions = ["settings:\(settings.configRevision)"]
         if providers.contains(.codex) {
             revisions.append("codex-dashboard:\(store.spendDashboardCodexCostCatchUpRevision)")
+        }
+        if settings.openCodexUsageLogsEnabled {
+            revisions.append("opencodex:\(settings.costUsageSettingsRevision)")
         }
         revisions += providers.compactMap { provider in
             // Provider-specific by design: Codex revisions come from catch-up, not captured token publications.
@@ -858,6 +990,7 @@ final class SpendDashboardController {
     private(set) var generation: UInt64 = 0
     private(set) var configuration: SpendDashboardConfiguration?
     private(set) var selectedDays: Int
+    private(set) var selectedDay: Date?
 
     private static let daysDefaultsKey = "settingsSpendDashboardDays"
     private let userDefaults: UserDefaults
@@ -896,10 +1029,13 @@ final class SpendDashboardController {
         guard configuration != self.configuration else { return }
         let previousConfiguration = self.configuration
         self.configuration = configuration
-        if self.phase.manualRefreshOutstanding,
+        if self.isRefreshing || self.phase.manualRefreshOutstanding,
            let previousConfiguration,
            Self.sameSourceOwnership(previousConfiguration, configuration)
         {
+            // Same-owner revision churn during an in-flight load adopts the newer
+            // configuration and lets the current pass finish once; handleBuiltRequest
+            // reconciles any remaining drift after apply.
             return
         }
         let nextPhase: LoadPhase = self.phase.manualRefreshOutstanding ? .forcing : .ordinary
@@ -934,7 +1070,9 @@ final class SpendDashboardController {
             false
         }
 
-        guard configuration.costUsageEnabled, !configuration.providerIDs.isEmpty else {
+        guard configuration.costUsageEnabled,
+              !configuration.providerIDs.isEmpty || configuration.openCodexUsageLogsEnabled
+        else {
             self.loadedInputs = []
             self.failedSourceCount = 0
             self.isRefreshing = false
@@ -955,10 +1093,11 @@ final class SpendDashboardController {
                 else { return }
                 let cachedResult = await cachedLoader(cachedRequest)
                 guard !Task.isCancelled,
-                      generation == self.generation,
-                      cachedRequest.configuration == self.configuration
+                      generation == self.generation
                 else { return }
-                self.applyCached(request: cachedRequest, result: cachedResult)
+                if cachedRequest.configuration == self.configuration {
+                    self.applyCached(request: cachedRequest, result: cachedResult)
+                }
             }
             let request = await self.requestBuilder(phase.buildMode)
             guard !Task.isCancelled,
@@ -1164,7 +1303,7 @@ final class SpendDashboardController {
         }
         return ReconciledOutcome(
             result: SpendDashboardLoadResult(
-                inputs: inputs,
+                inputs: SpendDashboardSource.mergingOpenCodexInputs(inputs, request: outcome.request),
                 failedSourceIDs: forceFailed.union(barrierFailed),
                 invalidatedSourceIDs: invalidated),
             confirmedEmptySourceIDs: outcome.confirmedEmptySourceIDs)
@@ -1183,10 +1322,24 @@ final class SpendDashboardController {
         self.rebuildModel()
     }
 
+    func selectDay(_ day: Date?) {
+        let calendar = self.configuration?.bucketCalendar ?? .current
+        let normalized = day.map { calendar.startOfDay(for: $0) }
+        guard normalized != self.selectedDay else { return }
+        self.selectedDay = normalized
+        self.rebuildModel()
+    }
+
     func refreshDateWindow(now: Date? = nil) {
-        self.loadedAt = now ?? self.nowProvider()
+        let now = now ?? self.nowProvider()
+        let calendar = self.configuration?.bucketCalendar ?? .current
+        let previousDay = calendar.startOfDay(for: self.loadedAt)
+        let nextDay = calendar.startOfDay(for: now)
+        self.loadedAt = now
         self.rebuildModel()
         guard let configuration else { return }
+        guard previousDay != nextDay || self.lastSuccessfulConfiguration == nil || self.failedSourceCount > 0
+        else { return }
         let nextPhase: LoadPhase = self.phase.manualRefreshOutstanding ? .forcing : .ordinary
         self.startLoad(configuration: configuration, phase: nextPhase)
     }
@@ -1200,11 +1353,16 @@ final class SpendDashboardController {
     }
 
     private func rebuildModel() {
+        let configuration = self.configuration
         self.model = SpendDashboardModel.build(
             inputs: self.loadedInputs,
             requestedDays: self.selectedDays,
             now: self.loadedAt,
-            preferredCurrencyCode: self.configuration?.preferredCurrencyCode ?? "auto")
+            calendar: configuration?.bucketCalendar ?? .current,
+            preferredCurrencyCode: configuration?.preferredCurrencyCode ?? "auto",
+            hiddenSourceIDs: Set(configuration?.hiddenSourceIDs ?? []),
+            hideNativeCodexWhenOpenCodexPresent: configuration?.hideNativeCodexCostWhenOpenCodexPresent ?? false,
+            selectedDay: self.selectedDay)
     }
 
     private func refreshRetainedCodexDisplayNames(_ displayNamesByID: [String: String]) {
@@ -1233,7 +1391,9 @@ final class SpendDashboardController {
             provider: input.provider,
             displayName: displayName,
             modelProviderName: input.modelProviderName,
-            snapshot: input.snapshot)
+            snapshot: input.snapshot,
+            tokenActivityCache: input.tokenActivityCache,
+            sourceKind: input.sourceKind)
     }
 
     private static func sameSourceOwnership(
@@ -1283,7 +1443,7 @@ final class SpendDashboardController {
         })
     }
 
-    private static let supportedDayRanges = [7, 30, SpendDashboardSource.scanDays]
+    private static let supportedDayRanges = [7, 30, 90, SpendDashboardSource.scanDays]
 
     private static func normalizedDays(_ value: Int) -> Int {
         self.supportedDayRanges.contains(value) ? value : 30

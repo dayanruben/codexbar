@@ -1,7 +1,7 @@
-import CodexBarCore
 import Foundation
 import Testing
 @testable import CodexBar
+@testable import CodexBarCore
 
 struct SpendDashboardModelTests {
     @Test
@@ -69,7 +69,17 @@ struct SpendDashboardModelTests {
         let providers = Set(ProviderDescriptorRegistry.all
             .filter(\.tokenCost.supportsTokenCost)
             .map(\.id))
-        #expect(providers == [.codex, .claude, .vertexai, .openai, .mistral, .bedrock, .cursor, .opencodego])
+        #expect(providers == [
+            .codex,
+            .claude,
+            .vertexai,
+            .openai,
+            .mistral,
+            .bedrock,
+            .cursor,
+            .opencodego,
+            .openrouter,
+        ])
     }
 
     @Test
@@ -1031,6 +1041,269 @@ extension SpendDashboardModelTests {
         #expect(knownZeroGroup.modelHistoryCompleteness == .complete)
         #expect(knownZeroGroup.models.isEmpty)
         #expect(spendDashboardModelHistoryPresentation(knownZeroGroup) == .empty)
+    }
+
+    @Test
+    func `token mix keeps missing classes unset and supports a 90 day window`() throws {
+        let now = Date(timeIntervalSince1970: 1_784_179_200)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let input = SpendDashboardModel.ProviderInput(
+            id: "codex",
+            provider: .codex,
+            displayName: "Codex",
+            snapshot: CostUsageTokenSnapshot(
+                sessionTokens: nil,
+                sessionCostUSD: nil,
+                last30DaysTokens: 12,
+                last30DaysCostUSD: 1,
+                currencyCode: "USD",
+                historyDays: 90,
+                daily: [
+                    CostUsageDailyReport.Entry(
+                        date: "2026-07-16",
+                        inputTokens: 10,
+                        outputTokens: 2,
+                        cacheReadTokens: nil,
+                        reasoningTokens: 3,
+                        totalTokens: 12,
+                        costUSD: 1,
+                        modelsUsed: ["gpt-5.4"],
+                        modelBreakdowns: [
+                            .init(modelName: "gpt-5.4", costUSD: 1, totalTokens: 12, reasoningTokens: 3),
+                        ]),
+                ],
+                sessions: [
+                    CostUsageSessionBreakdown(
+                        sessionID: "s1",
+                        lastActivity: now,
+                        inputTokens: 10,
+                        cachedInputTokens: nil,
+                        outputTokens: 2,
+                        reasoningTokens: 3,
+                        totalTokens: 12,
+                        requestCount: 1,
+                        costUSD: 1,
+                        modelBreakdowns: []),
+                ],
+                updatedAt: now))
+        let model = SpendDashboardModel.build(
+            inputs: [input],
+            requestedDays: 90,
+            now: now,
+            calendar: calendar)
+        #expect(model.requestedDays == 90)
+        let group = model.groups[0]
+        #expect(group.tokenMix.inputTokens == 10)
+        #expect(group.tokenMix.outputTokens == 2)
+        #expect(group.tokenMix.cacheReadTokens == nil)
+        #expect(group.tokenMix.reasoningTokens == 3)
+        #expect(group.displayedModels.count == 1)
+        #expect(group.sessions.count == 1)
+        #expect(group.provenance == .listPriceEstimate)
+    }
+
+    @Test
+    func `stored day keys stay put when the display timezone changes`() throws {
+        let now = Date(timeIntervalSince1970: 1_784_222_400) // 2026-07-16 12:00:00 UTC
+        let input = SpendDashboardModel.ProviderInput(
+            id: "codex",
+            provider: .codex,
+            displayName: "Codex",
+            snapshot: Self.snapshot(
+                currency: "USD",
+                entries: [Self.entry(day: "2026-07-16", cost: 4, tokens: 12)],
+                updatedAt: now))
+        var losAngeles = Calendar(identifier: .gregorian)
+        losAngeles.timeZone = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        var shanghai = Calendar(identifier: .gregorian)
+        shanghai.timeZone = try #require(TimeZone(identifier: "Asia/Shanghai"))
+        let west = SpendDashboardModel.build(
+            inputs: [input],
+            requestedDays: 7,
+            now: now,
+            calendar: losAngeles)
+        let east = SpendDashboardModel.build(
+            inputs: [input],
+            requestedDays: 7,
+            now: now,
+            calendar: shanghai)
+        let westDays = west.groups[0].dailyPoints.map {
+            CostUsageLocalDay.key(from: $0.day, calendar: losAngeles)
+        }
+        let eastDays = east.groups[0].dailyPoints.map {
+            CostUsageLocalDay.key(from: $0.day, calendar: shanghai)
+        }
+        #expect(westDays == ["2026-07-16"])
+        #expect(eastDays == ["2026-07-16"])
+        #expect(west.groups[0].totalCost == east.groups[0].totalCost)
+    }
+
+    @Test
+    func `openCodex stays on a separate ledger from native Codex`() {
+        let now = Date(timeIntervalSince1970: 1_784_179_200)
+        let native = SpendDashboardModel.ProviderInput(
+            id: "codex:main",
+            provider: .codex,
+            displayName: "Codex",
+            snapshot: Self.snapshot(currency: "USD", entries: [Self.entry(day: "2026-07-16", cost: 4)]),
+            sourceKind: .native)
+        let openCodex = SpendDashboardModel.ProviderInput(
+            id: SpendDashboardModel.openCodexSourceID,
+            provider: .codex,
+            displayName: "OpenCodex",
+            snapshot: Self.snapshot(currency: "USD", entries: [Self.entry(day: "2026-07-16", cost: 9)]),
+            sourceKind: .openCodex)
+        let sideBySide = SpendDashboardModel.build(
+            inputs: [native, openCodex],
+            requestedDays: 7,
+            now: now)
+        #expect(Set(sideBySide.groups[0].providers.map(\.id)) == ["opencodex", "codex:main"])
+        #expect(sideBySide.groups[0].providers.count == 2)
+
+        let hiddenNative = SpendDashboardModel.build(
+            inputs: [native, openCodex],
+            requestedDays: 7,
+            now: now,
+            hideNativeCodexWhenOpenCodexPresent: true)
+        #expect(hiddenNative.groups[0].providers.map(\.id) == [SpendDashboardModel.openCodexSourceID])
+
+        let filtered = SpendDashboardModel.build(
+            inputs: [native, openCodex],
+            requestedDays: 7,
+            now: now,
+            hiddenSourceIDs: [SpendDashboardModel.openCodexSourceID])
+        #expect(filtered.groups[0].providers.map(\.id) == ["codex:main"])
+        #expect(Set(filtered.availableSources.map(\.id)) == ["codex:main", SpendDashboardModel.openCodexSourceID])
+    }
+
+    @Test
+    func `metered spend stays on the snapshot window instead of a shorter range`() {
+        let now = Date(timeIntervalSince1970: 1_784_179_200)
+        let snapshot = CostUsageTokenSnapshot(
+            sessionTokens: 10,
+            sessionCostUSD: 1,
+            last30DaysTokens: 100,
+            last30DaysCostUSD: 10,
+            historyDays: 30,
+            meteredCostUSD: 4.5,
+            costProvenance: .mixed,
+            daily: [Self.entry(day: "2026-07-16", cost: 1)],
+            updatedAt: now)
+        let input = SpendDashboardModel.ProviderInput(
+            id: "cursor",
+            provider: .cursor,
+            displayName: "Cursor",
+            snapshot: snapshot)
+        let week = SpendDashboardModel.build(inputs: [input], requestedDays: 7, now: now)
+        let month = SpendDashboardModel.build(inputs: [input], requestedDays: 30, now: now)
+        #expect(week.groups[0].meteredCost == nil)
+        #expect(month.groups[0].meteredCost == 4.5)
+    }
+
+    @Test
+    func `vendor reported daily spend keeps vendor metered provenance`() throws {
+        let snapshot = CostUsageTokenSnapshot(
+            sessionTokens: nil,
+            sessionCostUSD: nil,
+            last30DaysTokens: 10,
+            last30DaysCostUSD: 3.5,
+            costProvenance: .vendorMetered,
+            daily: [Self.entry(day: "2026-07-16", cost: 3.5)],
+            updatedAt: Self.now)
+        let input = SpendDashboardModel.ProviderInput(
+            provider: .openrouter,
+            displayName: "OpenRouter",
+            snapshot: snapshot)
+
+        let model = SpendDashboardModel.build(inputs: [input], requestedDays: 30, now: Self.now)
+        let group = try #require(model.groups.first)
+
+        #expect(group.totalCost == 3.5)
+        #expect(group.provenance == .vendorMetered)
+        #expect(group.meteredCost == nil)
+    }
+
+    @Test
+    func `hourly points come from request buckets instead of session last activity`() {
+        let now = Date(timeIntervalSince1970: 1_784_179_200)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let firstHour = calendar.dateInterval(of: .hour, for: now)?.start ?? now
+        let secondHour = calendar.date(byAdding: .hour, value: 1, to: firstHour) ?? firstHour
+        let openCodex = SpendDashboardModel.ProviderInput(
+            id: SpendDashboardModel.openCodexSourceID,
+            provider: .codex,
+            displayName: "OpenCodex",
+            snapshot: CostUsageTokenSnapshot(
+                sessionTokens: 17,
+                sessionCostUSD: 2,
+                last30DaysTokens: 17,
+                last30DaysCostUSD: 2,
+                historyDays: 7,
+                costProvenance: .listPriceEstimate,
+                daily: [Self.entry(day: "2026-07-16", cost: 2, tokens: 17)],
+                sessions: [
+                    CostUsageSessionBreakdown(
+                        sessionID: "chat-1",
+                        lastActivity: secondHour,
+                        inputTokens: 14,
+                        cachedInputTokens: nil,
+                        outputTokens: 3,
+                        totalTokens: 17,
+                        requestCount: 2,
+                        costUSD: 2,
+                        modelBreakdowns: []),
+                ],
+                hourly: [
+                    CostUsageHourlyEntry(hour: firstHour, totalTokens: 12, costUSD: 1.2),
+                    CostUsageHourlyEntry(hour: secondHour, totalTokens: 5, costUSD: 0.8),
+                ],
+                updatedAt: now),
+            sourceKind: .openCodex)
+        let native = SpendDashboardModel.ProviderInput(
+            id: "codex",
+            provider: .codex,
+            displayName: "Codex",
+            snapshot: CostUsageTokenSnapshot(
+                sessionTokens: 40,
+                sessionCostUSD: 3,
+                last30DaysTokens: 40,
+                last30DaysCostUSD: 3,
+                historyDays: 7,
+                costProvenance: .listPriceEstimate,
+                daily: [Self.entry(day: "2026-07-16", cost: 3, tokens: 40)],
+                sessions: [
+                    CostUsageSessionBreakdown(
+                        sessionID: "native-1",
+                        lastActivity: secondHour,
+                        inputTokens: 30,
+                        cachedInputTokens: nil,
+                        outputTokens: 10,
+                        totalTokens: 40,
+                        requestCount: 1,
+                        costUSD: 3,
+                        modelBreakdowns: []),
+                ],
+                updatedAt: now))
+        let combined = SpendDashboardModel.build(
+            inputs: [openCodex, native],
+            requestedDays: 7,
+            now: now,
+            calendar: calendar)
+        #expect(combined.groups[0].hourlyPoints.map(\.hour) == [firstHour, secondHour])
+        #expect(combined.groups[0].hourlyPoints.map(\.cost) == [1.2, 0.8])
+        #expect(Set(combined.groups[0].hourlyPoints.map(\.sourceID)) == [SpendDashboardModel.openCodexSourceID])
+
+        let selected = SpendDashboardModel.build(
+            inputs: [openCodex],
+            requestedDays: 7,
+            now: now,
+            calendar: calendar,
+            selectedDay: calendar.startOfDay(for: now))
+        #expect(selected.groups[0].hourlyPoints.count == 2)
+        #expect(selected.groups[0].hourlyChartDomain?.lowerBound == calendar.startOfDay(for: now))
+        #expect(combined.groups[0].timeZone == calendar.timeZone)
     }
 }
 
