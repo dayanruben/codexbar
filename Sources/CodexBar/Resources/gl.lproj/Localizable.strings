@@ -791,6 +791,7 @@
 "Sonnet" = "Sonnet";
 "Auth" = "Autenticación";
 "Overages" = "Excesos";
+"Overage" = "Exceso";
 "Activity" = "Actividade";
 "Copied" = "Copiado";
 "Copy error" = "Erro ao copiar";
@@ -801,6 +802,7 @@
 "Balance updates in near-real time (up to 5 min lag)" = "O saldo actualízase case en tempo real (cun atraso de ata 5 min)";
 "Daily billing data finalizes at 07:00 UTC" = "Os datos diarios de facturación péchanse ás 07:00 UTC";
 "%@ of %@ credits left" = "Quedan %@ de %@ créditos";
+"of %@" = "de %@";
 "%@ of %@ bonus credits left" = "Quedan %@ de %@ créditos extra";
 "%@ / %@ (%@ remaining)" = "%@ / %@ (%@ restantes)";
 "%@/%@ left" = "Quedan %@/%@";
@@ -812,6 +814,7 @@
 "Full in ~1 regen" = "Cheo en ~1 rexeneración";
 "Full in ~%.0f regens" = "Cheo en ~%.0f rexeneracións";
 "Overage usage" = "Uso excesivo";
+"Overage credits left" = "Créditos de exceso restantes";
 "Overage cost" = "Custo excedente";
 "credits" = "créditos";
 "Zen balance" = "Saldo Zen";
@@ -1511,6 +1514,10 @@
 "menu_bar_layout_conditional_name" = "Nome";
 "menu_bar_layout_conditional_name_placeholder" = "p. ex. Comprobación de sesión";
 "menu_bar_layout_conditional_name_error" = "Introduce un nome único";
+"menu_bar_layout_conditional_used" = "usado";
+"menu_bar_layout_conditional_remaining" = "restante";
+"menu_bar_layout_conditional_metric_resets_in" = "%@ reiníciase en";
+"menu_bar_layout_conditional_metric_scoped_weekly" = "Semanal con ámbito";
 "menu_bar_layout_conditional_duplicate" = "Duplicar";
 "menu_bar_layout_conditional_summary" = "Se %1$@ entón %2$@ se non %3$@";
 "menu_bar_layout_conditional_copy_name" = "%@ (copia)";

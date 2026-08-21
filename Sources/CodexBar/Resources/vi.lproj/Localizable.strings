@@ -928,6 +928,7 @@
 "Monthly" = "Hàng tháng";
 "Sonnet" = "Sonnet";
 "Overages" = "Quá tải";
+"Overage" = "Vượt mức";
 "Activity" = "Hoạt động";
 "Copied" = "Đã sao chép";
 "Copy error" = "Lỗi sao chép";
@@ -938,6 +939,7 @@
 "Balance updates in near-real time (up to 5 min lag)" = "Cập nhật số dư trong thời gian gần như thực (độ trễ tối đa 5 phút)";
 "Daily billing data finalizes at 07:00 UTC" = "Dữ liệu thanh toán hàng ngày sẽ hoàn tất lúc 07:00 UTC";
 "%@ of %@ credits left" = "%@ trong số %@ tín dụng còn lại";
+"of %@" = "/ %@";
 "%@ of %@ bonus credits left" = "%@ trong số %@ tín dụng thưởng còn lại";
 "%@ / %@ (%@ remaining)" = "%@ / %@ ( %@ còn lại)";
 "%@/%@ left" = "%@ / %@ left";
@@ -949,6 +951,7 @@
 "Full in ~1 regen" = "Đầy đủ trong ~1 regen";
 "Full in ~%.0f regens" = "Đầy đủ trong ~%.0f regens";
 "Overage usage" = "Quá mức Mức sử dụng";
+"Overage credits left" = "Tín dụng vượt mức còn lại";
 "Overage cost" = "Chi phí quá mức";
 "credits" = "tín dụng";
 "Zen balance" = "Số dư Zen";
@@ -1513,6 +1516,10 @@
 "menu_bar_layout_conditional_name" = "Tên";
 "menu_bar_layout_conditional_name_placeholder" = "ví dụ: Kiểm tra phiên";
 "menu_bar_layout_conditional_name_error" = "Nhập tên duy nhất";
+"menu_bar_layout_conditional_used" = "đã dùng";
+"menu_bar_layout_conditional_remaining" = "còn lại";
+"menu_bar_layout_conditional_metric_resets_in" = "%@ đặt lại sau";
+"menu_bar_layout_conditional_metric_scoped_weekly" = "Hàng tuần theo phạm vi";
 "menu_bar_layout_conditional_duplicate" = "Nhân bản";
 "menu_bar_layout_conditional_summary" = "Nếu %1$@ thì %2$@ ngược lại %3$@";
 "menu_bar_layout_conditional_copy_name" = "%@ (bản sao)";

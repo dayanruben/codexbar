@@ -934,6 +934,7 @@
 "Monthly" = "Ежемесячно";
 "Sonnet" = "Sonnet";
 "Overages" = "Перерасходы";
+"Overage" = "Перерасход";
 "Activity" = "Активность";
 "Copied" = "Скопировано";
 "Copy error" = "Ошибка копирования";
@@ -944,6 +945,7 @@
 "Balance updates in near-real time (up to 5 min lag)" = "Обновления баланса практически в реальном времени (с задержкой до 5 минут)";
 "Daily billing data finalizes at 07:00 UTC" = "Данные ежедневного биллинга фиксируются в 07:00 UTC";
 "%@ of %@ credits left" = "Осталось %@ из %@ кредитов";
+"of %@" = "из %@";
 "%@ of %@ bonus credits left" = "Осталось %@ из %@ бонусных кредитов";
 "%@ / %@ (%@ remaining)" = "%@ / %@ (осталось %@)";
 "%@/%@ left" = "%@/%@ осталось";
@@ -955,6 +957,7 @@
 "Full in ~1 regen" = "Заполнится примерно за 1 пополнение";
 "Full in ~%.0f regens" = "Заполнится примерно за %.0f пополнений";
 "Overage usage" = "Перерасход";
+"Overage credits left" = "Оставшиеся кредиты перерасхода";
 "Overage cost" = "Стоимость перерасхода";
 "credits" = "кредиты";
 "Zen balance" = "Баланс Zen";
@@ -1513,6 +1516,10 @@
 "menu_bar_layout_conditional_name" = "Название";
 "menu_bar_layout_conditional_name_placeholder" = "напр., Проверка сеанса";
 "menu_bar_layout_conditional_name_error" = "Введите уникальное название";
+"menu_bar_layout_conditional_used" = "использовано";
+"menu_bar_layout_conditional_remaining" = "осталось";
+"menu_bar_layout_conditional_metric_resets_in" = "сброс %@ через";
+"menu_bar_layout_conditional_metric_scoped_weekly" = "Недельный по области";
 "menu_bar_layout_conditional_duplicate" = "Дублировать";
 "menu_bar_layout_conditional_summary" = "Если %1$@, то показать %2$@, иначе показать %3$@";
 "menu_bar_layout_conditional_copy_name" = "%@ (копия)";

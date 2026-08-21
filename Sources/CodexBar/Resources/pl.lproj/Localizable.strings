@@ -941,6 +941,7 @@
 "Monthly" = "Miesięcznie";
 "Sonnet" = "Sonnet";
 "Overages" = "Nadwyżki";
+"Overage" = "Nadwyżka";
 "Activity" = "Aktywność";
 "Copied" = "Skopiowano";
 "Copy error" = "Błąd kopiowania";
@@ -951,6 +952,7 @@
 "Balance updates in near-real time (up to 5 min lag)" = "Saldo aktualizuje się prawie w czasie rzeczywistym (opóźnienie do 5 min)";
 "Daily billing data finalizes at 07:00 UTC" = "Dzienne dane rozliczeniowe finalizują się o 07:00 UTC";
 "%@ of %@ credits left" = "%@ z %@ kredytów pozostało";
+"of %@" = "z %@";
 "%@ of %@ bonus credits left" = "%@ z %@ bonusowych kredytów pozostało";
 "%@ / %@ (%@ remaining)" = "%@ / %@ (%@ pozostało)";
 "%@/%@ left" = "%@/%@ pozostało";
@@ -962,6 +964,7 @@
 "Full in ~1 regen" = "Pełne za ~1 odnowienie";
 "Full in ~%.0f regens" = "Pełne za ~%.0f odnowień";
 "Overage usage" = "Użycie nadwyżki";
+"Overage credits left" = "Pozostałe kredyty nadwyżkowe";
 "Overage cost" = "Koszt nadwyżki";
 "credits" = "kredyty";
 "Zen balance" = "Saldo Zen";
@@ -1513,6 +1516,10 @@
 "menu_bar_layout_conditional_name" = "Nazwa";
 "menu_bar_layout_conditional_name_placeholder" = "np. Sprawdzenie sesji";
 "menu_bar_layout_conditional_name_error" = "Wprowadź unikalną nazwę";
+"menu_bar_layout_conditional_used" = "użyte";
+"menu_bar_layout_conditional_remaining" = "pozostałe";
+"menu_bar_layout_conditional_metric_resets_in" = "%@ zeruje się za";
+"menu_bar_layout_conditional_metric_scoped_weekly" = "Tygodniowe wg zakresu";
 "menu_bar_layout_conditional_duplicate" = "Duplikuj";
 "menu_bar_layout_conditional_or" = "lub";
 "menu_bar_layout_conditional_add_condition" = "Dodaj warunek";

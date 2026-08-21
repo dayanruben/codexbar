@@ -939,6 +939,7 @@
 "Monthly" = "รายเดือน";
 "Sonnet" = "โคลง";
 "Overages" = "ส่วนเกิน";
+"Overage" = "ส่วนเกิน";
 "Activity" = "กิจกรรม";
 "Copied" = "คัดลอกแล้ว";
 "Copy error" = "ข้อผิดพลาดในการคัดลอก";
@@ -949,6 +950,7 @@
 "Balance updates in near-real time (up to 5 min lag)" = "อัปเดตเครื่องชั่งแบบเกือบเรียลไทม์ (หน่วงสูงสุด 5 นาที)";
 "Daily billing data finalizes at 07:00 UTC" = "ข้อมูลการเรียกเก็บเงินรายวันจะสรุปเวลา 07:00 น. UTC";
 "%@ of %@ credits left" = "เหลือ %@ จาก %@ หน่วยกิต";
+"of %@" = "จาก %@";
 "%@ of %@ bonus credits left" = "%@ จาก %@ เครดิตโบนัสที่เหลืออยู่";
 "%@ / %@ (%@ remaining)" = "%@ / %@ (เหลือ %@)";
 "%@/%@ left" = "เหลือ %@/%@";
@@ -960,6 +962,7 @@
 "Full in ~1 regen" = "เต็มที่ ~1 รีเจน";
 "Full in ~%.0f regens" = "เต็มไปด้วยการฟื้นฟู ~%.0f ครั้ง";
 "Overage usage" = "การใช้งานส่วนเกิน";
+"Overage credits left" = "เครดิตส่วนเกินที่เหลือ";
 "Overage cost" = "ค่าใช้จ่ายส่วนเกิน";
 "credits" = "เครดิต";
 "Zen balance" = "ความสมดุลแบบเซน";
@@ -1516,6 +1519,10 @@
 "menu_bar_layout_conditional_name" = "ชื่อ";
 "menu_bar_layout_conditional_name_placeholder" = "เช่น ตรวจสอบเซสชัน";
 "menu_bar_layout_conditional_name_error" = "ป้อนชื่อที่ไม่ซ้ำกัน";
+"menu_bar_layout_conditional_used" = "ที่ใช้";
+"menu_bar_layout_conditional_remaining" = "ที่เหลือ";
+"menu_bar_layout_conditional_metric_resets_in" = "%@ รีเซ็ตใน";
+"menu_bar_layout_conditional_metric_scoped_weekly" = "รายสัปดาห์ตามขอบเขต";
 "menu_bar_layout_conditional_duplicate" = "ทำสำเนา";
 "menu_bar_layout_conditional_summary" = "ถ้า %1$@ จากนั้น %2$@ มิฉะนั้น %3$@";
 "menu_bar_layout_conditional_copy_name" = "%@ (สำเนา)";
