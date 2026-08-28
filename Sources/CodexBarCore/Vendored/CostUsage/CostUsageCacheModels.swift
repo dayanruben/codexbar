@@ -138,6 +138,7 @@ struct CostUsageCodexPreviousReport: Codable, Equatable {
         var modelsUsed: [String]?
         var modelBreakdowns: [ModelBreakdown]?
         var unpricedRequestCount: Int?
+        var pricedRequestCount: Int?
         var unmeteredRequestCount: Int?
         var estimatedRequestCount: Int?
 
@@ -154,6 +155,7 @@ struct CostUsageCodexPreviousReport: Codable, Equatable {
             self.modelsUsed = entry.modelsUsed
             self.modelBreakdowns = entry.modelBreakdowns?.map(ModelBreakdown.init)
             self.unpricedRequestCount = entry.unpricedRequestCount
+            self.pricedRequestCount = entry.pricedRequestCount
             self.unmeteredRequestCount = entry.unmeteredRequestCount
             self.estimatedRequestCount = entry.estimatedRequestCount
         }
@@ -173,7 +175,8 @@ struct CostUsageCodexPreviousReport: Codable, Equatable {
                 modelBreakdowns: self.modelBreakdowns?.map(\.dailyReportValue),
                 unpricedRequestCount: self.unpricedRequestCount,
                 unmeteredRequestCount: self.unmeteredRequestCount,
-                estimatedRequestCount: self.estimatedRequestCount)
+                estimatedRequestCount: self.estimatedRequestCount,
+                pricedRequestCount: self.pricedRequestCount)
         }
     }
 
@@ -253,6 +256,11 @@ struct CostUsageCodexPreviousReport: Codable, Equatable {
     }
 }
 
+struct CostUsageCodexRetryBufferPresence: Codable, Equatable, Sendable {
+    var subagent = false
+    var unresolvedFork = false
+}
+
 struct CostUsageFileUsage: Codable, Equatable {
     var mtimeUnixMs: Int64
     var size: Int64
@@ -294,10 +302,19 @@ struct CostUsageFileUsage: Codable, Equatable {
     var codexJSONLResumeState: CostUsageJsonl.ResumeState?
     var codexBufferedSubagentLines: [CostUsageScanner.CodexBufferedFastLine]?
     var codexBufferedUnresolvedForkLines: [CostUsageScanner.CodexBufferedFastLine]?
+    /// Only the store's private read-view adapter uses presence without loading replay bodies.
+    var codexReadRetryBufferPresence: CostUsageCodexRetryBufferPresence?
+
+    var hasBufferedCodexSubagentLines: Bool {
+        self.codexReadRetryBufferPresence?.subagent ?? (self.codexBufferedSubagentLines?.isEmpty == false)
+    }
+
+    var hasBufferedCodexUnresolvedForkLines: Bool {
+        self.codexReadRetryBufferPresence?.unresolvedFork ?? (self.codexBufferedUnresolvedForkLines?.isEmpty == false)
+    }
 
     var hasBufferedCodexForkRetryLines: Bool {
-        self.codexBufferedSubagentLines?.isEmpty == false
-            || self.codexBufferedUnresolvedForkLines?.isEmpty == false
+        self.hasBufferedCodexSubagentLines || self.hasBufferedCodexUnresolvedForkLines
     }
 }
 
