@@ -165,6 +165,11 @@ Differences from the desktop local probe:
   returns parseable usage for the selected account. CodexBar-owned pids are excluded from external reuse so managed
   probe/idle lifecycle accounting stays balanced; if no eligible external server answers, CodexBar uses its managed
   session as before.
+- On macOS, external reuse matches the selected binary against the kernel executable path, not the spelling of
+  `argv[0]`; a bare `agy` command can match, but a conflicting executable cannot. Platforms without that identity
+  retain the absolute command-path check. User/account and managed-process exclusions are unchanged.
+- If `agy` is signed out, an unavailable or tokenless IDE fallback keeps the actionable Terminal sign-in guidance.
+  A successful fallback still supplies usage, and more specific later errors retain their normal precedence.
 - Readiness is endpoint-based: CodexBar retries until one of the quota endpoints parses, because fresh `agy`
   processes can bind a port before the quota service is initialized.
 - App runtime uses a bounded warm session: `agy` is kept alive briefly after a refresh, then stopped on idle. CLI runtime
@@ -258,6 +263,10 @@ Local history reads only the existing recognized roots: `~/.gemini/antigravity-c
 Both overrides and `HOME` come from the same refresh environment. Declared roots and session files may be symlinks;
 discovery still visits only the immediate entries of the recognized directories. This is machine-local token history,
 not account attribution or dollar pricing. No language server, provider CLI, browser, credentials, or network is used.
+
+Use `codexbar cost --provider antigravity --format json` to read this same local history from the CLI.
+The cost endpoint and dashboard also include it when Antigravity is selected. Token counts do not imply known dollar
+costs, and these entry points do not expand the supported timestamp layouts described below.
 
 SQLite is authoritative when present. An unreadable root, malformed database, unsupported event layout, or exhausted
 budget never authorizes replacement by a smaller/stale JSONL cache. Complete empty databases and complete histories
