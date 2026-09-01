@@ -995,6 +995,11 @@ extension CostUsageStoreTests {
 
 extension CostUsageStoreTests {
     @Test(arguments: [
+        "7e293e8fc9e25700",
+        "494eee446bb2e5f9",
+        "6366caa15c925349",
+        "4a593b5d59c7bcf3",
+        "b77d4ec72e14ea63",
         "cfd84d13ad7d4cfa",
         "c6c46a376ba16304",
         "55f640e6bb0ccba4",
@@ -1007,6 +1012,11 @@ extension CostUsageStoreTests {
         let fixture = try StoreFixture()
         defer { fixture.remove() }
         #expect(CostUsageStore.compatiblePredecessorParserHashes == [
+            "7e293e8fc9e25700",
+            "494eee446bb2e5f9",
+            "6366caa15c925349",
+            "4a593b5d59c7bcf3",
+            "b77d4ec72e14ea63",
             "7b1b44d62a411215",
             "d9a91f31d0addc15",
             "f8577be489f4c13d",
@@ -1127,6 +1137,58 @@ extension CostUsageStoreTests {
         #expect(loaded.codexPriorityTurnKeys == ["turn-a": "priority"])
         #expect(loaded.codexPriorityTurnIDsByDay == ["2026-05-10": ["turn-a"]])
         #expect(loaded.codexPriorityTurnsCursor == nil)
+        let connection = try SQLiteTestConnection(url: fixture.databaseURL, readOnly: true)
+        #expect(try connection.scalarInt(
+            "SELECT COUNT(*) FROM meta WHERE key = 'parser_hash' AND value = '\(CodexParserHash.value)'") == 1)
+    }
+
+    @Test
+    func `main parser hash adopts legacy priority cursor payload without rebuilding`() async throws {
+        let fixture = try StoreFixture()
+        defer { fixture.remove() }
+        let predecessorHash = "494eee446bb2e5f9"
+        let predecessorVersion = CostUsageStore.combinedSchemaVersion(
+            base: CostUsageStore.baseSchemaVersion,
+            parserHash: predecessorHash)
+        let predecessor = CostUsageStore(
+            cacheRoot: fixture.root,
+            schemaVersion: predecessorVersion,
+            parserHash: predecessorHash)
+        var metadata = CostUsageStoreMetadata.empty
+        metadata.priorityTurnStatePayload = Data(#"""
+        {
+          "turnKeys": {"2026-08-31": "priority"},
+          "turnIDsByDay": {"2026-08-31": ["turn-a"]},
+          "turnsCursor": {
+            "databasePath": "/private/tmp/logs_2.sqlite",
+            "coverageSinceEpoch": 0,
+            "lastRowID": 8,
+            "fileIdentity": 42,
+            "anchorRowID": 8,
+            "anchorDigest": "legacy-terminal-digest",
+            "turns": {"turn-a": {"threadID": "thread-a", "turnID": "turn-a"}},
+            "requestSourcesByTurnID": {},
+            "priorityCompletedModelsByTurnID": {},
+            "completedModelsByTurnID": {},
+            "completedTurnIDInsertionOrder": [],
+            "completedTurnIDInsertionOrderStartIndex": 0
+          }
+        }
+        """#.utf8)
+        #expect(await predecessor.setMetadata(metadata))
+
+        let current = CostUsageStore(cacheRoot: fixture.root)
+        let loaded = current.syncLoadCodexCache(calendar: .current)
+        let cursor = try #require(loaded.codexPriorityTurnsCursor)
+
+        #expect(await current.fetchMetadata() == metadata)
+        #expect(await current.rebuildCount == 0)
+        #expect(cursor.anchors == nil)
+        #expect(loaded.codexResolvedPriorityTurns == nil)
+        #expect(cursor.anchorRowID == 8)
+        #expect(cursor.anchorDigest == "legacy-terminal-digest")
+        #expect(cursor.turns.keys.sorted() == ["turn-a"])
+        #expect(cursor.requestSourcesByTurnID.isEmpty)
         let connection = try SQLiteTestConnection(url: fixture.databaseURL, readOnly: true)
         #expect(try connection.scalarInt(
             "SELECT COUNT(*) FROM meta WHERE key = 'parser_hash' AND value = '\(CodexParserHash.value)'") == 1)

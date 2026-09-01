@@ -56,6 +56,7 @@ enum CostUsageScanner {
     struct CodexScanWorkMetrics: Equatable, Sendable {
         var usageRowsProcessed: Int
         var usageRowsRepriced: Int
+        var tokenTimestampComparisons: Int
         var cacheAliasEntriesIndexed: Int
         var cacheAliasLookups: Int
         var cacheAliasCandidatesVisited: Int
@@ -70,6 +71,7 @@ enum CostUsageScanner {
         private let lock = NSLock()
         private var processed = 0
         private var repriced = 0
+        private var tokenTimestampComparisons = 0
         private var cacheAliasEntriesIndexed = 0
         private var cacheAliasLookups = 0
         private var cacheAliasCandidatesVisited = 0
@@ -85,6 +87,10 @@ enum CostUsageScanner {
             self.processed += max(0, processed)
             self.repriced += max(0, repriced)
             self.lock.unlock()
+        }
+
+        func recordTokenTimestampComparison() {
+            self.lock.withLock { self.tokenTimestampComparisons += 1 }
         }
 
         func recordCacheAliasIndex(entries: Int) {
@@ -141,6 +147,7 @@ enum CostUsageScanner {
             return CodexScanWorkMetrics(
                 usageRowsProcessed: self.processed,
                 usageRowsRepriced: self.repriced,
+                tokenTimestampComparisons: self.tokenTimestampComparisons,
                 cacheAliasEntriesIndexed: self.cacheAliasEntriesIndexed,
                 cacheAliasLookups: self.cacheAliasLookups,
                 cacheAliasCandidatesVisited: self.cacheAliasCandidatesVisited,
@@ -871,25 +878,6 @@ enum CostUsageScanner {
         return checkpoints + appended
     }
 
-    static func codexTokenTimestampsAreMonotonic(
-        _ events: [CostUsageCodexTokenSnapshot]) -> Bool
-    {
-        guard events.count > 1 else { return true }
-        for (previous, current) in zip(events, events.dropFirst()) {
-            let isOrdered: Bool = if let previousDate = Self.dateFromTimestamp(previous.timestamp),
-                                     let currentDate = Self.dateFromTimestamp(current.timestamp)
-            {
-                previousDate <= currentDate
-            } else {
-                previous.timestamp <= current.timestamp
-            }
-            if !isOrdered {
-                return false
-            }
-        }
-        return true
-    }
-
     struct CodexScanResources {
         let fileIndex: CodexSessionFileIndex
         let inheritedResolver: CodexInheritedTotalsResolver
@@ -1058,6 +1046,7 @@ enum CostUsageScanner {
         let priorityTurnKeys: [String: String]
         let priorityTurnIDsByDay: [String: [String]]
         let inspectedPriorityTurns: Bool
+        let priorityValidationPending: Bool
         let priorityTurnsCursor: CodexPriorityTurnsPersistedCursor?
         let priorityMetadataChanged: Bool
         let priorityTurnsChanged: Bool
@@ -1935,7 +1924,6 @@ enum CostUsageScanner {
     }
 
     struct ClaudeParseResult {
-        let days: [String: [String: [Int]]]
         let rows: [ClaudeUsageRow]
         let parsedBytes: Int64
     }
@@ -2295,6 +2283,37 @@ enum CostUsageScanner {
             CostUsageDayRange.isInRange(dayKey: key, since: retainedSinceKey, until: retainedUntilKey)
         }
         return out.isEmpty ? nil : out
+    }
+
+    private static func validatedPriorityTurns(
+        cache: CostUsageCache,
+        calendar: Calendar) -> [String: CodexPriorityTurnMetadata]
+    {
+        if let resolved = cache.codexResolvedPriorityTurns { return resolved }
+        // Older caches only have a resume cursor. A historical scan may have superseded its
+        // pricing, so adopt only days whose published classification still matches the cursor.
+        let turns = cache.codexPriorityTurnsCursor?.turns ?? [:]
+        let keys = Self.codexPriorityTurnKeys(turns, calendar: calendar)
+        return turns.filter { _, turn in
+            guard let day = Self.codexPriorityDayKey(turn, calendar: calendar) else { return false }
+            return keys[day] == cache.codexPriorityTurnKeys?[day]
+        }
+    }
+
+    private static func mergeResolvedPriorityTurns(
+        existing: [String: CodexPriorityTurnMetadata],
+        new: [String: CodexPriorityTurnMetadata],
+        range: CostUsageDayRange,
+        retainedSinceKey: String,
+        retainedUntilKey: String) -> [String: CodexPriorityTurnMetadata]
+    {
+        var out = existing.filter { _, turn in
+            guard let day = Self.codexPriorityDayKey(turn, calendar: range.calendar) else { return false }
+            return CostUsageDayRange.isInRange(dayKey: day, since: retainedSinceKey, until: retainedUntilKey)
+                && !CostUsageDayRange.isInRange(dayKey: day, since: range.scanSinceKey, until: range.scanUntilKey)
+        }
+        out.merge(new) { _, replacement in replacement }
+        return out
     }
 
     private static func mergePriorityTurnIDsByDay(
@@ -5300,7 +5319,7 @@ enum CostUsageScanner {
         let pricingKeyChanged = cache.codexPricingKey != codexPricingKey
         let codexPriorityMetadataKey = Self.codexPriorityMetadataKey(databaseURL: options.codexTraceDatabaseURL)
         let hasPriorityMetadata = codexPriorityMetadataKey.hasPrefix("sqlite:")
-        let priorityMetadataChanged = Self.codexPriorityMetadataChanged(
+        let detectedPriorityMetadataChanged = Self.codexPriorityMetadataChanged(
             old: cache.codexPriorityMetadataKey,
             new: codexPriorityMetadataKey)
         let turnIDCacheMigrationPathKeys = hasPriorityMetadata ? Set(cache.files.compactMap { path, usage in
@@ -5318,7 +5337,7 @@ enum CostUsageScanner {
             || needsPricingMetadataMigration
             || needsProjectMetadataMigration
             || needsTurnIDCacheMigration
-            || priorityMetadataChanged
+            || detectedPriorityMetadataChanged
             || refreshMs == 0
             || cache.lastScanUnixMs == 0
             || nowMs - cache.lastScanUnixMs > refreshMs
@@ -5332,22 +5351,30 @@ enum CostUsageScanner {
                     databaseURL: resolvedPriorityDatabaseURL)
             }
         }
-        let priorityTurns = shouldInspectPriorityTurns ? Self.codexPriorityTurns(
+        let previouslyObservedDatabase = cache.codexPriorityMetadataKey
+            == "sqlite:\(resolvedPriorityDatabaseURL.standardizedFileURL.path)"
+        let priorityResolution = shouldInspectPriorityTurns ? Self.resolveCodexPriorityTurns(
             databaseURL: resolvedPriorityDatabaseURL,
             sinceDayKey: range.scanSinceKey,
-            untilDayKey: range.scanUntilKey) : [:]
-        let priorityTurnsCursor = shouldInspectPriorityTurns
+            untilDayKey: range.scanUntilKey,
+            expectExistingDatabase: previouslyObservedDatabase) : nil
+        let priorityTurns = priorityResolution?.turns
+            ?? Self.validatedPriorityTurns(cache: cache, calendar: range.calendar)
+        let priorityValidationPending = priorityResolution?.validationPending ?? false
+        let priorityMetadataChanged = detectedPriorityMetadataChanged && !priorityValidationPending
+        let priorityTurnsCursor = shouldInspectPriorityTurns && !priorityValidationPending
             ? Self.codexPriorityTurnsPersistedCursor(databaseURL: resolvedPriorityDatabaseURL)
             : nil
         let priorityTurnKeys = Self.codexPriorityTurnKeys(priorityTurns, calendar: range.calendar)
         let priorityTurnIDsByDay = Self.codexPriorityTurnIDsByDay(priorityTurns, calendar: range.calendar)
         let priorityTurnsChanged = shouldInspectPriorityTurns
+            && !priorityValidationPending
             && hasPriorityMetadata
             && Self.codexPriorityTurnKeysChanged(
                 old: cache.codexPriorityTurnKeys,
                 new: priorityTurnKeys,
                 range: range)
-        let changedPriorityTurnIDs = shouldInspectPriorityTurns && hasPriorityMetadata
+        let changedPriorityTurnIDs = shouldInspectPriorityTurns && !priorityValidationPending && hasPriorityMetadata
             ? Self.changedPriorityTurnIDs(
                 old: cache.codexPriorityTurnIDsByDay,
                 new: priorityTurnIDsByDay,
@@ -5373,6 +5400,7 @@ enum CostUsageScanner {
             || needsTurnIDCacheMigration
             || priorityMetadataChanged
             || priorityTurnsChanged
+            || priorityValidationPending
             || refreshMs == 0
             || cache.lastScanUnixMs == 0
             || nowMs - cache.lastScanUnixMs > refreshMs
@@ -5393,6 +5421,7 @@ enum CostUsageScanner {
             priorityTurnKeys: priorityTurnKeys,
             priorityTurnIDsByDay: priorityTurnIDsByDay,
             inspectedPriorityTurns: shouldInspectPriorityTurns,
+            priorityValidationPending: priorityValidationPending,
             priorityTurnsCursor: priorityTurnsCursor,
             priorityMetadataChanged: priorityMetadataChanged,
             priorityTurnsChanged: priorityTurnsChanged,
@@ -5447,12 +5476,17 @@ enum CostUsageScanner {
               !sourceCache.days.isEmpty
         else { return nil }
 
+        let priorityTurns = if plan.priorityValidationPending {
+            Self.validatedPriorityTurns(cache: sourceCache, calendar: range.calendar)
+        } else {
+            plan.priorityTurns
+        }
         let report = self.buildCodexReportFromCache(
             cache: sourceCache,
             range: range,
             modelsDevCatalog: plan.modelsDevCatalog,
             modelsDevCacheRoot: options.cacheRoot,
-            priorityTurns: plan.priorityTurns)
+            priorityTurns: priorityTurns)
         return CostUsageCodexPreviousReport(
             report: report,
             cache: sourceCache,
@@ -5479,6 +5513,7 @@ enum CostUsageScanner {
     private static func saveCodexCache(
         _ cache: inout CostUsageCache,
         store: CostUsageStore,
+        receipt: CostUsageStore.CodexBaselineReceipt,
         range: CostUsageDayRange,
         previousReport: CostUsageCodexPreviousReport?)
     {
@@ -5490,7 +5525,8 @@ enum CostUsageScanner {
             calendar: range.calendar,
             requestedScanWindow: (sinceKey: range.scanSinceKey, untilKey: range.scanUntilKey),
             reportWindow: (sinceKey: range.sinceKey, untilKey: range.untilKey),
-            skipIdenticalContent: true)
+            skipIdenticalContent: true,
+            receipt: receipt)
         if saveResult.catchUpRequired {
             cache.codexScanCatchUpPending = true
             cache.codexPreviousReport = previousReport
@@ -5505,6 +5541,7 @@ enum CostUsageScanner {
         checkCancellation: CancellationCheck?) throws -> CostUsageDailyReport
     {
         let loadedCache = Self.loadCodexCache(options: options, range: range)
+        defer { loadedCache.release() }
         var cache = loadedCache.cache
         let nowMs = Int64(now.timeIntervalSince1970 * 1000)
         let plan = Self.makeCodexRefreshPlan(cache: cache, range: range, now: now, nowMs: nowMs, options: options)
@@ -5513,6 +5550,21 @@ enum CostUsageScanner {
             range: range,
             plan: plan,
             options: options)
+
+        // A transient trace-database failure must not make this refresh look complete. Keep the
+        // last published cache (including its freshness timestamp and durable priority cursor)
+        // untouched so the next refresh retries validation against the same baseline.
+        if plan.priorityValidationPending {
+            guard cache.roots == plan.rootsFingerprint,
+                  cache.timeZoneIdentifier == range.calendar.timeZone.identifier
+            else { return CostUsageDailyReport(data: [], summary: nil) }
+            return previousReport?.report ?? Self.buildCodexReportFromCache(
+                cache: cache,
+                range: range,
+                modelsDevCatalog: plan.modelsDevCatalog,
+                modelsDevCacheRoot: options.cacheRoot,
+                priorityTurns: Self.validatedPriorityTurns(cache: cache, calendar: range.calendar))
+        }
 
         if plan.shouldRefresh {
             try checkCancellation?()
@@ -5909,6 +5961,17 @@ enum CostUsageScanner {
                 || cache.files.values.contains { $0.hasBufferedCodexForkRetryLines }
             cache.codexScanCatchUpPending = catchUpPending
             cache.codexPreviousReport = catchUpPending ? previousReport : nil
+            if plan.inspectedPriorityTurns {
+                // Report pricing follows each successful inspected window, including an empty
+                // historical result. The independent live cursor remains suitable for resume.
+                cache.codexResolvedPriorityTurns = Self.mergeResolvedPriorityTurns(
+                    existing: shouldRetainWiderWindow
+                        ? Self.validatedPriorityTurns(cache: cache, calendar: range.calendar) : [:],
+                    new: plan.priorityTurns,
+                    range: range,
+                    retainedSinceKey: retainedSinceKey,
+                    retainedUntilKey: retainedUntilKey)
+            }
             if plan.hasPriorityMetadata {
                 cache.codexPriorityTurnKeys = Self.mergePriorityTurnKeys(
                     existing: shouldRetainWiderWindow ? cache.codexPriorityTurnKeys : nil,
@@ -5933,6 +5996,7 @@ enum CostUsageScanner {
             Self.saveCodexCache(
                 &cache,
                 store: loadedCache.store,
+                receipt: loadedCache.receipt,
                 range: range,
                 previousReport: previousReport)
         }
