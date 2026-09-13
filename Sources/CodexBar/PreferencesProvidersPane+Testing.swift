@@ -27,16 +27,6 @@ extension ProvidersPane {
             provider: provider,
             settings: self.settings,
             store: self.store,
-            boolBinding: { keyPath in
-                Binding(
-                    get: { self.settings[keyPath: keyPath] },
-                    set: { self.settings[keyPath: keyPath] = $0 })
-            },
-            stringBinding: { keyPath in
-                Binding(
-                    get: { self.settings[keyPath: keyPath] },
-                    set: { self.settings[keyPath: keyPath] = $0 })
-            },
             statusText: { id in
                 statusTextByID[id]
             },
@@ -230,8 +220,7 @@ enum ProvidersPaneTestHarness {
             placeholder: "Placeholder",
             binding: Binding(get: { "" }, set: { _ in }),
             actions: [actionBordered],
-            isVisible: { true },
-            onActivate: nil)
+            isVisible: { true })
         let fieldSecure = ProviderSettingsFieldDescriptor(
             id: "secure",
             title: "Secure",
@@ -240,8 +229,7 @@ enum ProvidersPaneTestHarness {
             placeholder: "Secure",
             binding: Binding(get: { "" }, set: { _ in }),
             actions: [actionLink],
-            isVisible: { true },
-            onActivate: nil)
+            isVisible: { true })
         let tokenAccountsEmpty = ProviderSettingsTokenAccountsDescriptor(
             id: "accounts-empty",
             title: "Accounts",

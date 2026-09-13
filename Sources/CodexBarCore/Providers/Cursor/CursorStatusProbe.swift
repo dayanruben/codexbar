@@ -74,20 +74,6 @@ public enum CursorCookieImporter {
             && BrowserCookieAccessGate.shouldAttempt(browser)
     }
 
-    /// Reads Cursor session cookies from one browser if present (no fallback to other browsers).
-    static func importSessionIfPresent(
-        browser: Browser,
-        applicationURL: URL? = nil,
-        browserDetection: BrowserDetection,
-        logger: ((String) -> Void)? = nil) -> SessionInfo?
-    {
-        self.importSessionsIfPresent(
-            browser: browser,
-            applicationURL: applicationURL,
-            browserDetection: browserDetection,
-            logger: logger).first
-    }
-
     /// Reads all Cursor session-cookie candidates from one browser source order.
     static func importSessionsIfPresent(
         browser: Browser,
@@ -101,21 +87,6 @@ public enum CursorCookieImporter {
             browserDetection: browserDetection,
             requireKnownSessionName: true,
             logger: logger)
-    }
-
-    /// Like ``importSessionIfPresent`` but accepts any non-empty cookie set for Cursor domains so the API can validate
-    /// (used after the strict name pass fails — e.g. new cookie names or host-only cookies).
-    static func importDomainCookiesIfPresent(
-        browser: Browser,
-        applicationURL: URL? = nil,
-        browserDetection: BrowserDetection,
-        logger: ((String) -> Void)? = nil) -> SessionInfo?
-    {
-        self.importDomainCookieSessionsIfPresent(
-            browser: browser,
-            applicationURL: applicationURL,
-            browserDetection: browserDetection,
-            logger: logger).first
     }
 
     /// Reads fallback cookie candidates whose names are not already covered by the strict session-cookie pass.
@@ -724,28 +695,7 @@ public actor CursorSessionStore {
     private func saveToDisk() {
         // Convert cookie properties to JSON-serializable format
         // Date values must be converted to TimeInterval (Double)
-        let cookieData = self.sessionCookies.compactMap { cookie -> [String: Any]? in
-            guard let props = cookie.properties else { return nil }
-            var serializable: [String: Any] = [:]
-            for (key, value) in props {
-                let keyString = key.rawValue
-                if let date = value as? Date {
-                    // Convert Date to TimeInterval for JSON compatibility
-                    serializable[keyString] = date.timeIntervalSince1970
-                    serializable[keyString + "_isDate"] = true
-                } else if let url = value as? URL {
-                    serializable[keyString] = url.absoluteString
-                    serializable[keyString + "_isURL"] = true
-                } else if JSONSerialization.isValidJSONObject([value]) ||
-                    value is String ||
-                    value is Bool ||
-                    value is NSNumber
-                {
-                    serializable[keyString] = value
-                }
-            }
-            return serializable
-        }
+        let cookieData = CookiePropertyJSON.encode(self.sessionCookies)
         guard !cookieData.isEmpty else {
             try? FileManager.default.removeItem(at: self.fileURL)
             return
@@ -764,30 +714,7 @@ public actor CursorSessionStore {
               let cookieArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
         else { return }
 
-        self.sessionCookies = cookieArray.compactMap { props in
-            // Convert back to HTTPCookiePropertyKey dictionary
-            var cookieProps: [HTTPCookiePropertyKey: Any] = [:]
-            for (key, value) in props {
-                // Skip marker keys
-                if key.hasSuffix("_isDate") || key.hasSuffix("_isURL") {
-                    continue
-                }
-
-                let propKey = HTTPCookiePropertyKey(key)
-
-                // Check if this was a Date
-                if props[key + "_isDate"] as? Bool == true, let interval = value as? TimeInterval {
-                    cookieProps[propKey] = Date(timeIntervalSince1970: interval)
-                }
-                // Check if this was a URL
-                else if props[key + "_isURL"] as? Bool == true, let urlString = value as? String {
-                    cookieProps[propKey] = URL(string: urlString)
-                } else {
-                    cookieProps[propKey] = value
-                }
-            }
-            return HTTPCookie(properties: cookieProps)
-        }
+        self.sessionCookies = CookiePropertyJSON.decode(cookieArray)
     }
 
     private func pruneExpiredCookies(now: Date = Date()) {

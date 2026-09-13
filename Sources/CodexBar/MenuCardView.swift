@@ -179,6 +179,7 @@ struct UsageMenuCardView: View {
         let inlineUsageDashboard: InlineUsageDashboardModel?
         var creditsText: String?
         var creditsRemaining: Double?
+        var creditsShowProgress = true
         var creditsProgressPercent: Double?, creditsScaleText: String?
         var creditsHintText: String?
         var creditsHintCopyText: String?
@@ -252,6 +253,7 @@ struct UsageMenuCardView: View {
                         CreditsBarContent(
                             creditsText: credits,
                             creditsRemaining: liveModel.creditsRemaining,
+                            showsProgress: liveModel.creditsShowProgress,
                             progressPercent: liveModel.creditsProgressPercent,
                             scaleText: liveModel.creditsScaleText,
                             hintText: liveModel.creditsHintText,
@@ -777,6 +779,7 @@ struct UsageMenuCardCreditsSectionView: View {
                 CreditsBarContent(
                     creditsText: credits,
                     creditsRemaining: liveModel.creditsRemaining,
+                    showsProgress: liveModel.creditsShowProgress,
                     progressPercent: liveModel.creditsProgressPercent,
                     scaleText: liveModel.creditsScaleText,
                     hintText: liveModel.creditsHintText,
@@ -804,6 +807,7 @@ private struct CreditsBarContent: View {
 
     let creditsText: String
     let creditsRemaining: Double?
+    let showsProgress: Bool
     var progressPercent: Double?, scaleText: String?
     let hintText: String?
     let hintCopyText: String?
@@ -811,6 +815,7 @@ private struct CreditsBarContent: View {
     @Environment(\.menuItemHighlighted) private var isHighlighted
 
     private var percentLeft: Double? {
+        guard self.showsProgress else { return nil }
         if let progressPercent {
             return min(100, max(0, progressPercent))
         }
@@ -861,42 +866,6 @@ private struct CreditsBarContent: View {
                     }
             }
         }
-    }
-}
-
-struct UsageMenuCardCostSectionView: View {
-    let model: UsageMenuCardView.Model
-    let topPadding: CGFloat
-    let bottomPadding: CGFloat
-    let width: CGFloat
-    @Environment(\.menuItemHighlighted) private var isHighlighted
-    @Environment(\.menuCardRefreshMonitor) private var refreshMonitor
-
-    var body: some View {
-        let liveModel = self.liveModel
-        let hasTokenCost = liveModel.tokenUsage != nil
-        return Group {
-            if hasTokenCost {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let tokenUsage = liveModel.tokenUsage {
-                        TokenUsageSectionContent(
-                            provider: liveModel.provider,
-                            tokenUsage: tokenUsage,
-                            showsCodexHint: true,
-                            lineFont: .caption)
-                    }
-                }
-                .padding(.horizontal, UsageMenuCardLayout.horizontalPadding)
-                .padding(.top, self.topPadding)
-                .padding(.bottom, self.bottomPadding)
-                .frame(width: self.width, alignment: .leading)
-            }
-        }
-    }
-
-    private var liveModel: UsageMenuCardView.Model {
-        guard self.model.usesLiveSubtitle else { return self.model }
-        return self.refreshMonitor?.model(for: self.model.provider, fallback: self.model) ?? self.model
     }
 }
 
@@ -1029,7 +998,8 @@ extension UsageMenuCardView.Model {
             openAIAPIUsage: openAIAPIUsage,
             inlineUsageDashboard: inlineUsageDashboard,
             creditsText: creditsText,
-            creditsRemaining: input.credits?.codexCreditLimit?.remaining ?? input.credits?.remaining,
+            creditsRemaining: input.credits?.displayRemaining,
+            creditsShowProgress: input.credits?.hasWorkspaceBalance != true,
             creditsProgressPercent: creditsProgressPercent,
             creditsScaleText: creditsScaleText,
             creditsHintText: codexCreditLimitDetail ?? redacted.creditsHintText,
@@ -1079,11 +1049,14 @@ extension UsageMenuCardView.Model {
         return details.compactMap { section in
             let rows = section.rows.compactMap { row in
                 try? ProviderDetailSection.Row(
+                    id: row.id,
                     label: PersonalInfoRedactor.redactEmails(in: row.label, isEnabled: true) ?? row.label,
                     value: PersonalInfoRedactor.redactEmails(in: row.value, isEnabled: true) ?? row.value,
                     secondaryValue: PersonalInfoRedactor.redactEmails(
                         in: row.secondaryValue,
-                        isEnabled: true))
+                        isEnabled: true),
+                    progress: row.progress,
+                    usageValue: row.usageValue)
             }
             let chart = section.chart.flatMap { chart in
                 let points = chart.points.compactMap { point in

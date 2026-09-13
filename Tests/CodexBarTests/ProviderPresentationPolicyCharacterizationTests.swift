@@ -82,13 +82,11 @@ struct ProviderPresentationPolicyCharacterizationTests {
         #expect(generic.session == secondary)
         #expect(generic.weekly == nil)
         #expect(MenuBarLayout.migrated(
-            iconStyle: .bars,
             displayMode: .percent,
             metricPreference: .primary,
             resetTimeDisplayStyle: .countdown,
             provider: .kimi).lines == [[.icon, .percent(window: .weekly)]])
         #expect(MenuBarLayout.migrated(
-            iconStyle: .bars,
             displayMode: .percent,
             metricPreference: .secondary,
             resetTimeDisplayStyle: .countdown,
@@ -151,7 +149,7 @@ struct ProviderPresentationPolicyCharacterizationTests {
     @Test
     @MainActor
     func `decorated icon style membership is pinned`() throws {
-        let decoratedStyles: Set<IconStyle> = [.codex, .claude, .gemini, .antigravity, .factory, .warp]
+        let decoratedStyles: Set<IconStyle> = [.codex, .claude, .gemini, .antigravity, .factory, .warp, .grok]
         for style in IconStyle.allCases {
             let decorated = IconRenderer.makeIcon(
                 primaryRemaining: 60,

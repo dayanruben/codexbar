@@ -17,14 +17,18 @@ Source labels (CLI/header): `openai-web`, `web`, `oauth`, `api`, `local`, `cli`,
 
 Cookie-based providers expose a Cookie source picker (Automatic or Manual) in Settings → Providers.
 Some browser cookie imports are cached in Keychain and reused until the session is invalid. API keys, manual cookie
-headers, source selection, provider ordering, and token accounts are stored in `~/.codexbar/config.json`.
+headers, source selection, provider ordering, and token accounts are stored in the resolved config file.
+New installs use `~/.config/codexbar/config.json`; existing `~/.codexbar/config.json` installs retain that legacy path.
+See [CLI configuration](cli-configuration.md) for `XDG_CONFIG_HOME` and `CODEXBAR_CONFIG` overrides.
 
 ## Usage & Spend settings
 
 Settings → Usage & Spend is a local estimated-cost history page, not a billing receipt and not the menu-bar quota
 card. Range choices are 7 / 30 / 90 days and All (the scan window is 365 days). Amounts are list-price equivalents
 unless a source also reports plan-metered spend, in which case both columns appear. Day buckets use a pinned IANA
-timezone stored when cost tracking is first enabled.
+timezone stored when cost tracking is first enabled. Heatmap and ledger dates remain aligned to local calendar
+days across daylight-saving transitions, including zones where midnight is skipped. Coverage counts civil days,
+and daily/hourly chart labels use the bucket time zone. Their ranges end at the next local day boundary rather than a fixed 24 hours.
 
 Regular token-history publications also refresh outdated independent Usage & Spend sources, including Claude,
 through their own 365-day scan. The dashboard never substitutes the shorter menu history for that scan. Updates

@@ -287,7 +287,7 @@ public struct AlibabaCodingPlanUsageFetcher: Sendable {
     }
 
     static func url(from rawHost: String, region: AlibabaCodingPlanAPIRegion) -> URL? {
-        let cleaned = AlibabaCodingPlanSettingsReader.cleaned(rawHost)
+        let cleaned = SettingsValue.cleaned(rawHost)
         guard let cleaned else { return nil }
 
         let base = ProviderEndpointOverrideValidator.normalizedHTTPSURL(from: cleaned)
@@ -307,7 +307,7 @@ public struct AlibabaCodingPlanUsageFetcher: Sendable {
     }
 
     static func consoleURL(from rawHost: String, region: AlibabaCodingPlanAPIRegion) -> URL? {
-        let cleaned = AlibabaCodingPlanSettingsReader.cleaned(rawHost)
+        let cleaned = SettingsValue.cleaned(rawHost)
         guard let cleaned else { return nil }
 
         let base = ProviderEndpointOverrideValidator.normalizedHTTPSURL(from: cleaned)
@@ -368,7 +368,7 @@ public struct AlibabaCodingPlanUsageFetcher: Sendable {
     }
 
     static func dashboardURL(from rawHost: String, region: AlibabaCodingPlanAPIRegion) -> URL? {
-        let cleaned = AlibabaCodingPlanSettingsReader.cleaned(rawHost)
+        let cleaned = SettingsValue.cleaned(rawHost)
         guard let cleaned else { return nil }
 
         let base = ProviderEndpointOverrideValidator.normalizedHTTPSURL(from: cleaned)
@@ -428,7 +428,7 @@ public struct AlibabaCodingPlanUsageFetcher: Sendable {
     }
 
     private static func baseURL(from rawHost: String) -> URL? {
-        let cleaned = AlibabaCodingPlanSettingsReader.cleaned(rawHost)
+        let cleaned = SettingsValue.cleaned(rawHost)
         guard let cleaned else { return nil }
 
         let base = ProviderEndpointOverrideValidator.normalizedHTTPSURL(from: cleaned)
@@ -883,15 +883,6 @@ public struct AlibabaCodingPlanUsageFetcher: Sendable {
     private static func anyDate(for keys: [String], in dict: [String: Any]) -> Date? {
         for key in keys {
             if let value = OneConsoleJSON.date(dict[key]) {
-                return value
-            }
-        }
-        return nil
-    }
-
-    private static func anyPercent(for keys: [String], in dict: [String: Any]) -> Double? {
-        for key in keys {
-            if let value = self.parsePercent(dict[key]) {
                 return value
             }
         }
