@@ -164,6 +164,11 @@ existing binaries. No framework search-path override is added.
 selections and their deadlines while avoiding whole-batch retries. Apple-Silicon macOS CI includes the CLI entry suite;
 the former Intel-runner exclusion is retired.
 
+Claude OAuth gate tests use `ClaudeOAuthDefaultsFixtures()` so each test case owns an in-memory preferences store.
+Keep reset, expiry, and persisted-key assertions inside that scope; nested tasks inherit it, detached tasks do not.
+The gates retain their normal production defaults domain. Continue serializing shared gate state and same-host
+full-suite runs: isolating these preferences does not isolate every test dependency.
+
 `make test` and `make check` require a `python3` that provides `os.waitid` with `WNOWAIT`. Some macOS Python
 builds, including Apple's `/usr/bin/python3`, do not provide it. The test runner then stops before its initial
 Swift discovery/build and names the interpreter path, its version, and the missing attributes. Earlier
@@ -474,7 +479,16 @@ verifier argument. `CodexBarLinuxTests` includes the portable `AntigravityLocalh
 both macOS and Linux. It checks session reuse and concurrent synthetic loopback failures without credentials;
 this coverage does not establish or fix the cause of Linux dispatch crashes.
 
+### Static Linux SDK
+
+CI and release builds install the static Linux SDK through `Scripts/install_swift_static_sdk.sh`. It downloads with
+`curl`, verifies the pinned SHA-256, and passes a local archive to `swift sdk install`, avoiding SwiftPM's Linux
+FoundationNetworking/TLS teardown crash. Portable lint checks cover checksum rejection, download failures, and installer
+failure propagation without downloading an SDK.
+Changes to the installer require a musl CI build.
+
 ### Format Code
+
 ```bash
 swiftformat Sources Tests
 swiftlint --strict
