@@ -177,6 +177,8 @@ struct UsageMenuCardView: View {
         let usageNotes: [String]
         var subscriptionNotes: [String] = []
         var providerDetails: [ProviderDetailSection] = []
+        /// Provider-owned titles remain stable when the displayed sections are localized or redacted.
+        var providerDetailRawTitles: [String?] = []
         let openAIAPIUsage: OpenAIAPIUsageSnapshot?
         let inlineUsageDashboard: InlineUsageDashboardModel?
         var creditsText: String?
@@ -185,7 +187,7 @@ struct UsageMenuCardView: View {
         var creditsProgressPercent: Double?, creditsScaleText: String?
         var creditsHintText: String?
         var creditsHintCopyText: String?
-        var codexResetCredits: CodexResetCreditsPresentation?
+        var limitResetCredits: LimitResetCreditsPresentation?
         let providerCost: ProviderCostSection?
         let tokenUsage: TokenUsageSection?
         let placeholder: String?
@@ -714,11 +716,11 @@ private struct UsageMenuCardUsageContentView: View {
             } else {
                 self.metricRows(self.model.metrics)
             }
-            if let resetCredits = self.model.codexResetCredits {
+            if let resetCredits = self.model.limitResetCredits {
                 if !self.model.metrics.isEmpty, self.showsSectionDividers {
                     Divider()
                 }
-                CodexResetCreditsContent(presentation: resetCredits)
+                LimitResetCreditsContent(presentation: resetCredits)
             }
             if let dashboard = self.model.inlineUsageDashboard {
                 InlineUsageDashboardContent(model: dashboard)
@@ -728,7 +730,7 @@ private struct UsageMenuCardUsageContentView: View {
             } else if !self.model.usageNotes.isEmpty {
                 UsageNotesContent(notes: self.model.usageNotes)
             } else if let placeholder = self.model.placeholder, self.model.metrics.isEmpty,
-                      self.model.codexResetCredits == nil
+                      self.model.limitResetCredits == nil
             {
                 Text(placeholder)
                     .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
@@ -955,9 +957,8 @@ extension UsageMenuCardView.Model {
         let showsProviderCost = menuCard.showsProviderCost(context: ProviderCostVisibilityContext(
             snapshot: extraUsageSnapshot,
             showOptionalUsage: input.showOptionalCreditsAndExtraUsage))
-        let providerCostStyle = extraUsageSnapshot.map {
-            presentation.cost(snapshot: $0).menuCardStyle
-        } ?? .generic
+        let costPresentation = extraUsageSnapshot.map { presentation.cost(snapshot: $0) }
+        let providerCostStyle = costPresentation?.menuCardStyle ?? .generic
         let providerCostFollowsSummaryStyle = Self.providerCostFollowsSummaryStyle(
             cost: extraUsageCost,
             style: providerCostStyle,
@@ -993,6 +994,9 @@ extension UsageMenuCardView.Model {
                 now: input.now)
         let redacted = Self.redactedText(input: input, subtitle: subtitle)
         let placeholder = Self.placeholder(input: input)
+        let providerDetails = Self.visibleProviderDetails(
+            input: input,
+            replacedRows: providerCost == nil ? [:] : costPresentation?.replacedDetailRows ?? [:])
 
         return UsageMenuCardView.Model(
             provider: input.provider,
@@ -1010,7 +1014,8 @@ extension UsageMenuCardView.Model {
             metrics: metrics,
             usageNotes: usageNotes,
             subscriptionNotes: Self.subscriptionMetadataNotes(snapshot: input.snapshot, provider: input.provider),
-            providerDetails: Self.visibleProviderDetails(input: input),
+            providerDetails: providerDetails.sections,
+            providerDetailRawTitles: providerDetails.rawTitles,
             openAIAPIUsage: openAIAPIUsage,
             inlineUsageDashboard: inlineUsageDashboard,
             creditsText: creditsText,
@@ -1020,7 +1025,7 @@ extension UsageMenuCardView.Model {
             creditsScaleText: creditsScaleText,
             creditsHintText: codexCreditLimitDetail ?? redacted.creditsHintText,
             creditsHintCopyText: codexCreditLimitDetail ?? redacted.creditsHintCopyText,
-            codexResetCredits: Self.codexResetCredits(input: input),
+            limitResetCredits: Self.limitResetCredits(input: input),
             providerCost: providerCost,
             tokenUsage: tokenUsage,
             placeholder: placeholder,
@@ -1038,59 +1043,6 @@ extension UsageMenuCardView.Model {
             }
         }
         return input.snapshot?.providerCost
-    }
-
-    private static func visibleProviderDetails(input: Input) -> [ProviderDetailSection] {
-        var details = input.snapshot?.details ?? []
-        let policy = ProviderDescriptorRegistry.descriptor(for: input.provider).presentation.optionalDetails
-        if !input.costSummaryInlineEnabled, !policy.costSummaryTitles.isEmpty {
-            details.removeAll { section in
-                section.title.map(policy.costSummaryTitles.contains) == true
-            }
-        }
-        if !input.showOptionalCreditsAndExtraUsage {
-            if policy.hidesAllWithoutOptionalUsage {
-                details = []
-            } else if !policy.hiddenTitlesWithoutOptionalUsage.isEmpty {
-                details.removeAll { section in
-                    section.title.map(policy.hiddenTitlesWithoutOptionalUsage.contains) == true
-                }
-            }
-        }
-        if input.provider == .sub2api {
-            details = Self.sub2APILocalizedDetails(details)
-        }
-        details = Self.localizedProviderDetails(details, provider: input.provider)
-        guard input.hidePersonalInfo else { return details }
-        return details.compactMap { section in
-            let rows = section.rows.compactMap { row in
-                try? ProviderDetailSection.Row(
-                    id: row.id,
-                    label: PersonalInfoRedactor.redactEmails(in: row.label, isEnabled: true) ?? row.label,
-                    value: PersonalInfoRedactor.redactEmails(in: row.value, isEnabled: true) ?? row.value,
-                    secondaryValue: PersonalInfoRedactor.redactEmails(
-                        in: row.secondaryValue,
-                        isEnabled: true),
-                    progress: row.progress,
-                    usageValue: row.usageValue)
-            }
-            let chart = section.chart.flatMap { chart in
-                let points = chart.points.compactMap { point in
-                    try? ProviderDetailSection.Chart.Point(
-                        label: PersonalInfoRedactor.redactEmails(in: point.label, isEnabled: true) ?? point.label,
-                        value: point.value)
-                }
-                return try? ProviderDetailSection.Chart(
-                    kind: chart.kind,
-                    title: PersonalInfoRedactor.redactEmails(in: chart.title, isEnabled: true),
-                    unit: chart.unit,
-                    points: points)
-            }
-            return try? ProviderDetailSection(
-                title: PersonalInfoRedactor.redactEmails(in: section.title, isEnabled: true),
-                rows: rows,
-                chart: chart)
-        }
     }
 
     private static func email(from input: Input) -> String {
