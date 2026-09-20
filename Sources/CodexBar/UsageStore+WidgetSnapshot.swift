@@ -196,6 +196,7 @@ extension UsageStore {
         }
         return WidgetSnapshot(
             entries: entries,
+            accounts: self.makeWidgetAccountEntries(now: now),
             enabledProviders: enabledProviders,
             usageBarsShowUsed: self.settings.usageBarsShowUsed,
             generatedAt: now)
@@ -274,6 +275,13 @@ extension UsageStore {
         } else {
             nil
         }
+        // Provider-specific by design: DeepSeek and OpenRouter expose their widget value as balance text.
+        let balanceText: String? = switch provider {
+        case .deepseek, .openrouter:
+            StatusItemController.menuBarBalanceDisplayText(provider: provider, snapshot: snapshot)
+        default:
+            nil
+        }
 
         return WidgetSnapshot.ProviderEntry(
             provider: provider,
@@ -287,7 +295,8 @@ extension UsageStore {
             tokenUsage: tokenUsage,
             dailyUsage: dailyUsage,
             providerCost: providerCost,
-            quotaOwnerKey: quotaOwnerKey)
+            quotaOwnerKey: quotaOwnerKey,
+            balanceText: balanceText)
     }
 
     private struct PreservedClaudeWidgetUsage {
@@ -436,7 +445,7 @@ extension UsageStore {
             .rateWindowLabels(metadata: metadata, snapshot: snapshot).primary
     }
 
-    private func widgetUsageRows(
+    func widgetUsageRows(
         provider: UsageProvider,
         snapshot: UsageSnapshot,
         now: Date) -> [WidgetSnapshot.WidgetUsageRowSnapshot]
