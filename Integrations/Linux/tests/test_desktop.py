@@ -85,6 +85,7 @@ else:
         for _ in range(3):
             self.assertEqual(self.client('--background')['pid'], first['pid'])
         self.assertEqual(first['summary'], 'CX 60%')
+        self.assertEqual(first['barEntries'], [{'provider': 'codex', 'tag': 'CX', 'text': '60%'}])
         self.assertNotIn('private@example.com', json.dumps(first))
         self.assertNotIn('executable', first)
         socket = self.runtime / 'codexbar-linux' / 'desktop.sock'
@@ -131,6 +132,30 @@ else:
         self.client('--refresh')
         refreshed = self.wait_for(lambda value: not value['busy'])
         self.assertEqual(refreshed['entries'][0]['windows'][1]['key'], windows[1]['key'])
+
+    def test_antigravity_pools_reach_snapshots_once_with_representatives_first(self):
+        # Core copies the tightest pool of each model family into the positional windows and also
+        # lists every pool as a quota-summary extra.
+        def pool(used, minutes, reset):
+            return {'usedPercent': used, 'windowMinutes': minutes, 'resetsAt': reset}
+        gemini_weekly = pool(95, 10080, '2030-01-03T00:00:00Z')
+        claude_session = pool(100, 300, '2030-01-01T05:00:00Z')
+        usage = {'primary': gemini_weekly, 'secondary': claude_session, 'extraRateWindows': [
+            {'id': 'antigravity-quota-summary-' + key, 'title': title, 'usageKnown': True, 'window': window}
+            for key, title, window in [
+                ('gemini-5h', 'Gemini 5-hour', pool(3, 300, '2030-01-01T03:00:00Z')),
+                ('gemini-weekly', 'Gemini weekly', gemini_weekly),
+                ('claude-5h', 'Claude/GPT 5-hour', claude_session),
+                ('claude-weekly', 'Claude/GPT weekly', pool(0, 10080, '2030-01-07T00:00:00Z'))]]}
+        (self.root / 'state.json').write_text(json.dumps({'usage': usage}))
+        self.client('--configure', '{"provider":"antigravity"}')
+        value = self.wait_for(lambda value: value.get('entries') and value['entries'][0]['provider'] == 'antigravity'
+                              and not value['busy'])
+        windows = value['entries'][0]['windows']
+        self.assertEqual([(window['label'], window['remaining']) for window in windows], [
+            ('Gemini weekly', 5), ('Claude/GPT 5-hour', 0), ('Gemini 5-hour', 97), ('Claude/GPT weekly', 100)])
+        self.assertEqual(len({window['key'] for window in windows}), 4)
+        self.assertEqual(value['summary'], 'antigravity 5%')
 
     def test_provider_window_labels_reach_private_snapshot(self):
         (self.root / 'state.json').write_text(json.dumps({
@@ -240,6 +265,7 @@ else:
         self.client('--configure', '{"quotaDisplay":"used","resetDisplay":"absolute"}')
         value = self.client('--snapshot')
         self.assertEqual(value['summary'], 'CX 40%')
+        self.assertEqual(value['barEntries'], [{'provider': 'codex', 'tag': 'CX', 'text': '40%'}])
         self.assertEqual(value['entries'][0]['windows'][0]['displayValue'], 40)
         self.assertEqual(value['entries'][0]['windows'][0]['displaySuffix'], 'used')
         self.assertFalse(value['busy'])

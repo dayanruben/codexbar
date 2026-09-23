@@ -9,6 +9,53 @@ import Testing
 @Suite(.serialized)
 struct ProviderSettingsDescriptorTests {
     @Test
+    func `OpenCode Go can add API accounts while automatic cookies are selected`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-opencodego-accounts")
+        fixture.settings.opencodegoCookieSource = .auto
+        let support = try #require(TokenAccountSupportCatalog.support(for: .opencodego))
+        #expect(OpenCodeGoProviderImplementation().tokenAccountsVisibility(
+            context: fixture.settingsContext(provider: .opencodego), support: support))
+        #expect(support.subtitle.contains("API keys"))
+    }
+
+    @Test
+    func `Hyper exposes session controls and an independent API key`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-hyper")
+        let context = fixture.settingsContext(provider: .hyper)
+        let implementation = HyperProviderImplementation()
+        let fields = implementation.settingsFields(context: context)
+        let picker = try #require(implementation.settingsPickers(context: context).first)
+        #expect(fields.map(\.id) == ["hyper-cookie", "hyper-api-key"])
+        #expect(fields.map(\.kind) == [.secure, .secure])
+        #expect(picker.options.map(\.id) == ["auto", "manual", "off"])
+        picker.binding.wrappedValue = "manual"
+        #expect(fields[0].isVisible?() == true)
+        fields[0].binding.wrappedValue = "session=fixture"
+        fields[1].binding.wrappedValue = "fixture-key"
+        #expect(fixture.settings.providerConfig(for: .hyper)?.cookieHeader == "session=fixture")
+        #expect(fixture.settings.providerConfig(for: .hyper)?.apiKey == "fixture-key")
+        picker.binding.wrappedValue = "off"
+        #expect(fields[0].isVisible?() == false)
+        let contribution = try #require(implementation.settingsSnapshot(context: .init(
+            settings: fixture.settings, tokenOverride: nil)))
+        let snapshot = ProviderSettingsSnapshot(contributions: [contribution])
+        #expect(snapshot[HyperProviderSettingsKey.self]?.cookieSource == .off)
+    }
+
+    @Test
+    func `bifrost exposes only a virtual key and a configured gateway URL`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-bifrost")
+        let fields = BifrostProviderImplementation()
+            .settingsFields(context: fixture.settingsContext(provider: .bifrost))
+        #expect(fields.map(\.id) == ["bifrost-api-key", "bifrost-base-url"])
+        #expect(fields.map(\.kind) == [.secure, .plain])
+        fields[0].binding.wrappedValue = "fixture-virtual-key"
+        fields[1].binding.wrappedValue = "https://bifrost.example.com"
+        #expect(fixture.settings.providerConfig(for: .bifrost)?.apiKey == "fixture-virtual-key")
+        #expect(fixture.settings.providerConfig(for: .bifrost)?.enterpriseHost == "https://bifrost.example.com")
+    }
+
+    @Test
     func `bedrock discloses monitoring charges before credentials in either authentication mode`() throws {
         let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-bedrock-charges")
         let context = fixture.settingsContext(provider: .bedrock)
@@ -762,6 +809,16 @@ extension ProviderSettingsDescriptorTests {
             .detailLine(context)
 
         #expect(detailLine == "web")
+    }
+
+    @Test
+    func `devin automatic auth explains Chromium browser support`() throws {
+        let fixture = try self.makeSettingsFixture(suite: "ProviderSettingsDescriptorTests-devin-browsers")
+        fixture.settings.devinCookieSource = .auto
+        let picker = try #require(DevinProviderImplementation()
+            .settingsPickers(context: fixture.settingsContext(provider: .devin)).first)
+
+        #expect(picker.subtitle == "Automatically imports the app.devin.ai session from Chromium browsers.")
     }
 }
 

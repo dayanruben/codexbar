@@ -29,20 +29,40 @@ function rows(text, showIdentity) {
         var usage = entry.usage || {};
         var identity = usage.identity || {};
         var windows = [];
+        var extras = (Array.isArray(usage.extraRateWindows) ? usage.extraRateWindows : []).filter(measured);
+        // Antigravity lists every pool as a quota-summary extra and copies one per model family
+        // into its positional windows. Show each representative in its positional slot under
+        // the family's title and drop its extra copy: the tray and summary read the leading
+        // windows, and the extra limit below must not hide a representative. The row keeps the
+        // pool's own key, so its alert history follows it when another pool becomes binding.
+        // Families are matched as Core selects them, because two families can report equal values.
+        var families = {primary: /gemini/i, secondary: /claude|gpt/i};
+        var represented = [];
         ["primary", "secondary", "tertiary"].forEach(function(key, index) {
             var window = usage[key];
             var left = remaining(window);
             if (left === null) return;
+            var copy = entry.provider === "antigravity" && families[key] ? extras.filter(function(extra) {
+                return extra.id.indexOf("antigravity-quota-summary-") === 0 &&
+                    represented.indexOf(extra) === -1 && families[key].test(String(extra.title || "")) &&
+                    extra.window.usedPercent === window.usedPercent &&
+                    extra.window.windowMinutes === window.windowMinutes && extra.window.resetsAt === window.resetsAt;
+            }).sort(function(a, b) {
+                // Core breaks equal usage ties by the case-insensitive title.
+                return String(a.title || "").toLowerCase().localeCompare(String(b.title || "").toLowerCase());
+            })[0] : null;
+            if (copy) represented.push(copy);
             var suppliedLabel = entry.rateWindowLabels && entry.rateWindowLabels[key];
             var safeLabel = typeof suppliedLabel === "string" ? displayText(suppliedLabel, false).trim() : "";
-            var label = cadenceLabel(window.windowMinutes) || safeLabel || ["Session", "Weekly", "Additional"][index];
-            windows.push({key: key, label: label, remaining: left, resetsAt: window.resetsAt || "",
-                pace: entry.pace && entry.pace[key] ? String(entry.pace[key].summary || "") : ""});
+            var label = (copy && displayText(copy.title, false).trim()) ||
+                cadenceLabel(window.windowMinutes) || safeLabel || ["Session", "Weekly", "Additional"][index];
+            windows.push({key: copy ? "extra:" + copy.id : key, label: label, remaining: left,
+                resetsAt: window.resetsAt || "", pace: entry.pace && entry.pace[key] ? String(entry.pace[key].summary || "") : ""});
         });
         // Extras come last: a consumer resolving a cadence by first match must still find the
         // provider's general window rather than a lane scoped to one model.
-        (Array.isArray(usage.extraRateWindows) ? usage.extraRateWindows : [])
-            .filter(measured).slice(0, 8).forEach(function(extra) {
+        extras.filter(function(extra) { return represented.indexOf(extra) === -1; })
+            .slice(0, 8).forEach(function(extra) {
             var scopedWindow = extra.window;
             // These labels are exported over IPC, whose contract excludes account identity,
             // so a provider-supplied title is redacted whatever the display preference says.
@@ -140,12 +160,19 @@ function costs(text, today) {
     });
 }
 
+// Share the same compact labels and display limit between text and logo adapters.
+function barSegments(entries, mode) {
+    return entries.slice(0, 2).map(function(entry) {
+        return {provider: entry.provider,
+            tag: entry.provider === "codex" ? "CX" : entry.provider === "claude" ? "CL" : entry.provider,
+            text: entry.windows.length ? quotaValue(entry.windows[0].remaining, mode) + "%" : "—"};
+    });
+}
+
 function summary(entries, mode) {
-    var label = entries.slice(0, 2).map(function(entry) {
-        var label = entry.provider === "codex" ? "CX" : entry.provider === "claude" ? "CL" : entry.provider;
-        return label + " " + (entry.windows.length ? quotaValue(entry.windows[0].remaining, mode) + "%" : "—");
-    }).join("  ·  ");
-    return label + (entries.length > 2 ? "  +" + (entries.length - 2) : "");
+    var shown = barSegments(entries, mode);
+    var label = shown.map(function(entry) { return entry.tag + " " + entry.text; }).join("  ·  ");
+    return label + (entries.length > shown.length ? "  +" + (entries.length - shown.length) : "");
 }
 
 function resetLabel(value, now) {
