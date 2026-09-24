@@ -1,10 +1,35 @@
 # Changelog
 
-## 0.64.2 — Unreleased
+## 0.65.1 — Unreleased
+
+### Added
+
+- Atlas Cloud: show account-wide available USD balance through the documented API-key endpoint (#2714). Thanks @clairernovotny!
+- Vercel AI Gateway: show team-wide USD balance and lifetime spend through the documented API-key endpoint (#2975). Thanks @pikant!
+- DevPass: track plan credits, premium weekly usage and resets, and API-key spending through the documented LLM Gateway API (#3433). Thanks @MichelKerkmeester!
+
+### Fixed
+
+- Menu bar: resolve provider balances in stored layouts and show Doubao Agent Plan icon usage when Coding Plan lanes are absent (#3904, #3897, #3901, #3907, #3898, #3911). Thanks @vincent-peng, @mousebomb, and @harjothkhara!
+- Claude costs: skip identical cache and report-memo writes after rescans, reducing local history disk writes (#3882).
+- Codex costs: avoid rewriting unchanged retained file state when another session or scan metadata changes, reducing local history disk writes (#3882).
+- Website: refresh the social preview image for all 80 providers, include the newest integrations, and invalidate cached previews when the card changes.
+- Muse Code: check the CLI-owned Keychain item's access list before requesting its token, so refreshes fail promptly when access would require a prompt, and discover logins without reading secrets (#3916). Thanks @audreyt!
+
+## 0.65.0 — 2026-09-22
+
+### Highlights
+
+- **Three new providers:** track Charm Hyper credits, GitKraken AI weekly credits, and Bifrost gateway budgets and rate limits, bringing the catalog to 80 providers.
+- **More flexible accounts:** save labeled Kimi web sessions and Doubao Ark API keys, and use per-account OpenCode Go API keys without changing cookie preferences.
+- **Zed spending:** opt in to browser billing for token spend and remaining budget while keeping the editor login as the default.
+- **Faster, more accurate history:** reuse quota charts and Codex scans, include claude-swap homes without duplicates, and preserve Linux Priority pricing.
+- **More reliable refreshes:** preserve Claude quotas through CLI redraws, confirm Codex weekly resets, and explain Antigravity offline fallbacks.
 
 ### Added
 
 - Doubao: save labeled Ark API-key accounts in the shared account editor and select them in the app or CLI without inheriting another account's credentials (#3192).
+- Zed: opt in to browser-session billing for token spend, limits, and remaining budget while keeping the editor login as the default (#3172). Thanks @shuuul!
 - Kimi: save labeled web accounts in the shared account editor, with isolated cookies and region-aware app and CLI usage (including Linux) while preserving source preferences (#2937). Thanks @jky1314!
 - Charm Hyper: track Hypercredit balance with a bundled provider plugin, Chrome/manual sessions, and API-key fallback (#2502, #2318). Thanks @steipete, @JavaGT, and @akshayprabhu200!
 - Omarchy: identify providers with theme-tinted logos in the compact bar, retaining text fallback for missing logos and older backends (#3795). Thanks @jsonMartin!

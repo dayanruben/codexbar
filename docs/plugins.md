@@ -230,6 +230,9 @@ displayable usage or identity remains invalid unless `empty: true` is explicitly
 
 ## TypeScript
 
+DevPass's bundled `devpass.ts` reads the documented LLM Gateway key-status API for billing-cycle and premium weekly
+credits. Swift only registers the provider and its API-key setting. See [DevPass](devpass.md).
+
 Moonshot's bundled `moonshot.ts` runs on both engines. Its Swift descriptor resolves the regional credential and passes
 the selected origin as `BASE_URL`; the plugin validates the fixed International/China origins and uses
 `ctx.format.currency` for identity-only balance and deficit text. See [Moonshot](moonshot.md).
@@ -310,6 +313,12 @@ Call `ctx.browser.rejectCookie(domain)` after the server rejects a session. The 
 evicts only the cached entry observed by that fetch (each domain is pinned for the fetch lifetime); a newer session and other domains remain intact. Manual headers
 are never erased. User plugins have no persistent cookie cache, so rejection is a validated no-op for them.
 
+## API balance bundled providers
+
+[Atlas Cloud](atlascloud.md) and [Vercel AI Gateway](vercel.md) use fixed-origin bearer GETs for documented
+account/team balances. Their bundled JavaScript returns generic details without fabricated quota windows;
+Swift provides registration and the shared API-key settings field. Scripts classify HTTP failures and the host bounds retries.
+
 ## GitKraken AI bundled provider
 
 [GitKraken AI](gitkraken.md) uses bearer GET against its declared first-party API origin, with optional
@@ -320,3 +329,8 @@ organization scope and generic weekly windows/details. Swift supplies only regis
 [Charm Hyper](hyper.md) uses declared-domain cookies or a secure API key against its fixed credits endpoint.
 The bundled TypeScript owns session preference, API fallback, error classification, and HC balance parsing;
 Swift supplies registration and the shared settings surface.
+
+## Zed bundled provider
+
+[Zed](zed.md) uses its bundled script for editor API and opt-in browser billing requests. Swift retains editor settings
+and Keychain credential discovery; browser mode uses a declared `zed.dev` cookie session and never reads editor credentials.

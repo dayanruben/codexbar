@@ -8,7 +8,7 @@ read_when:
 
 # Providers
 
-CodexBar currently registers 80 provider IDs. Some companies expose multiple surfaces, such as Codex vs OpenAI API or
+CodexBar currently registers 83 provider IDs. Some companies expose multiple surfaces, such as Codex vs OpenAI API or
 OpenCode vs OpenCode Go, because the auth source and quota shape differ.
 
 ## Fetch strategies (current)
@@ -100,6 +100,9 @@ complete when the available scan window covers fewer days.
 | [TypeSafe](typesafe.md) | Chrome cookies or a manual header → bundled plugin for billing spend and credit balance (`web`). |
 | [Hugging Face](huggingface.md) | Access token from settings/env/CLI → bundled plugin for Inference Providers charges, optional ZeroGPU quota, and token-scoped identity (`api`). |
 | [v0](v0.md) | API key and optional project scope from settings/env → bundled plugin for Platform API billing and rate limits (`api`). |
+| [DevPass](devpass.md) | Regular LLM Gateway API key → bundled plugin for plan credits, premium weekly usage, and all-time key spend (`api`). |
+| [Atlas Cloud](atlascloud.md) | Standard API key → account-wide available USD balance (`api`). |
+| [Vercel AI Gateway](vercel.md) | AI Gateway API key → team-wide USD balance and lifetime spend (`api`). |
 | Windsurf | Web session bundle from browser localStorage (`web`) → local SQLite cache (`local`). |
 | Ollama | API key verifies Cloud API access (`api`); browser cookies expose Cloud quota windows (`web`). |
 | Synthetic | API key from config/env → quota API (`api`). |
@@ -139,7 +142,7 @@ complete when the available scan window covers fewer days.
 | [ZenMux](zenmux.md) | Management API key from config/env → five-hour and seven-day quota windows plus PAYG balance (`api`). |
 | ai& | API key from config/env → 30-day organization spend summed from the request logs API (`api`). |
 | xAI | Management key + team ID from config/env → prepaid balance and 30-day daily spend from the Management API (`api`). |
-| Zed | Zed editor Keychain session → `cloud.zed.dev/client/users/me` for plan and quota data (`local`). |
+| Zed | Editor Keychain session → `cloud.zed.dev/client/users/me` (`local`), or opt-in browser cookies → frontend billing usage for token spend (`web`). Both use the bundled plugin. |
 | Notion AI | Browser cookies → workspace resolution and the AI usage allowance API (`web`). |
 | [IBM Bob](ibm-bob.md) | API key from config/env → profile and per-team Bobcoin budget APIs (`api`). |
 | [Pi](pi.md) | Local Pi/OMP assistant transcripts → token history and API-rate cost estimates (`local`); no subscription quota. |
@@ -372,6 +375,7 @@ provider-specific cookie validation, endpoints, login detection, and error trans
 - Details: `docs/jetbrains.md`.
 
 ## Zed
+- Optional browser billing reads token spend, limits, and remaining budget from a signed-in `zed.dev` Chrome session or manual Cookie header. Cookie source defaults to Off; browser and editor accounts are never combined.
 - Reads the signed-in Zed editor session from the macOS Keychain (`credentials_url` / `https://zed.dev`).
 - Calls `GET https://cloud.zed.dev/client/users/me` for plan, billing cycle, Edit Predictions quota, and overdue invoice flag.
 - Sign in to the Zed editor first.

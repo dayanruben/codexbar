@@ -28,11 +28,11 @@ weakening the plugin network policy.
 
 | Status | Count |
 |---|---:|
-| `cut-over` | 16 |
+| `cut-over` | 17 |
 | `converted` | 5 |
 | `convertible-now` | 4 |
 | `needs-cookie-import` | 19 |
-| `needs-files/subprocess/oauth-broker` | 15 |
+| `needs-files/subprocess/oauth-broker` | 14 |
 | `needs-pty/webview/native` | 8 |
 | `needs-host-extension` | 1 |
 | **Total** | **69** |
@@ -76,7 +76,7 @@ weakening the plugin network policy.
 | openrouter | `cut-over` | Yes | Cut over on JavaScriptCore: endpoint and client-header overrides plus one-second best-effort key enrichment match native behavior; the native fetch core is Linux-only. |
 | elevenlabs | `cut-over` | Yes | Cut over on both engines: xi-api-key GET, validated endpoint overrides, subscription/voice windows, reset dates, and safe current/legacy auth diagnostics; the Swift fetch twin is deleted. |
 | windsurf | `needs-files/subprocess/oauth-broker` | No | Chromium localStorage, IDE databases, and binary protobuf decoding supply the current session. |
-| zed | `needs-files/subprocess/oauth-broker` | No | Zed server settings and a named Keychain credential must be read locally. |
+| zed | `cut-over` | Yes | Editor and opt-in browser billing HTTP/parsing run in the plugin on both engines. Swift retains editor settings and named Keychain credentials; manual browser billing also works on Linux. |
 | perplexity | `converted` | Yes | Converted: declared-domain cookie import and generic recurring, bonus, and purchased credit windows. |
 | mimo | `needs-cookie-import` | No | Browser/Firefox session import and a local cache feed balance, plan, and token-specific details. |
 | doubao | `needs-files/subprocess/oauth-broker` | No | Full parity needs a CLI subprocess or Volcengine HMAC signing and POST-based plan calls. |
@@ -117,3 +117,6 @@ weakening the plugin network policy.
 |---|---|---|---|
 | gitkraken | `cut-over` | QuickJS + JavaScriptCore | First-party bearer GET, optional organization header, weekly personal/shared credits; API-only, no subprocess fallback. |
 | hyper | `cut-over` | QuickJS + JavaScriptCore | Fixed-origin credits GET with Chrome/manual session preference and API-key fallback; native HC balance, no invented quotas or resets. |
+| devpass | `cut-over` | QuickJS + JavaScriptCore | Documented bearer GET for billing-cycle and premium weekly credits plus separate all-time key spend; API-only. |
+| atlascloud | `cut-over` | QuickJS + JavaScriptCore | Public billing API bearer GET for the account-wide available USD balance; no invented quota or Coding Plan allowance. |
+| vercel | `cut-over` | QuickJS + JavaScriptCore | Public credits API bearer GET for team USD balance and lifetime spend; no CLI discovery or metered reporting. |
