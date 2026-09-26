@@ -25,13 +25,16 @@ extension StatusItemController {
             legacyDefaultItemIndex: legacyDefaultItemIndex)
         // AppKit has no named factory: keep the item zero-width until its stable identity is attached.
         let item = create(0)
+        MenuBarStatusItemWindowProbe.trace("created", item: item as? NSStatusItem)
         // Registration must see the stable identity before its callback can re-enter setup.
         item.autosaveName = identity.autosaveName
+        MenuBarStatusItemWindowProbe.trace("named", item: item as? NSStatusItem)
         onCreated?(item)
         // Reentrant registration may have already rendered a custom width.
         if item.length == 0 {
             item.length = NSStatusItem.variableLength
         }
+        MenuBarStatusItemWindowProbe.trace("sized", item: item as? NSStatusItem)
         if let button = item.button {
             let title = self.statusItemAccessibilityTitle(
                 isDebugApp: self.isDebugApp(bundleIdentifier: Bundle.main.bundleIdentifier))
@@ -46,15 +49,25 @@ extension StatusItemController {
     /// Removes a status item while keeping its saved menu bar position (see
     /// `MenuBarStatusItemPlacementPreservation`).
     func removeStatusItemPreservingPlacement(_ item: NSStatusItem) {
-        MenuBarStatusItemPlacementPreservation.removeStatusItem(
-            item,
-            from: self.statusBar,
-            defaults: self.settings.userDefaults)
+        MenuBarStatusItemPlacementPreservation.preservingPreferredPosition(
+            autosaveName: item.autosaveName ?? "", defaults: self.settings.userDefaults)
+        {
+            if !self.hasPreparedForAppShutdown {
+                // Retire runtime identities before later cleanup can clear the restored position.
+                item.autosaveName = nil
+            }
+            // Renaming immediately before exit can leave Control Center hosting a blank Item-0 slot.
+            self.statusBar.removeStatusItem(item)
+        }
     }
 
     /// Shows or hides a status item while keeping its saved menu bar position.
     func setStatusItemVisiblePreservingPlacement(_ item: NSStatusItem, _ isVisible: Bool) {
-        MenuBarStatusItemPlacementPreservation.setVisible(isVisible, for: item, defaults: self.settings.userDefaults)
+        MenuBarStatusItemPlacementPreservation.preservingPreferredPosition(
+            autosaveName: item.autosaveName ?? "", defaults: self.settings.userDefaults)
+        {
+            item.isVisible = isVisible
+        }
     }
 
     /// Lazily retrieves or creates a status item for the given provider.

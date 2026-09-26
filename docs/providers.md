@@ -56,6 +56,9 @@ double-count the same traffic. An optional toggle can hide native Codex while Op
 emits the currently aggregated model (provenance, mix, coverage). Invalid numeric fields are omitted while valid
 neighboring fields remain available. Existing cached rows are reparsed once after the numeric parser update;
 subsequent unchanged reads continue to reuse the corrected cache.
+Rows explicitly billed to `nous` appear under Nous Portal with OpenCodex provenance, even when their model IDs
+name another vendor. Their dollar amounts are estimates from exact Nous/model pricing, never Portal credits or
+the producer's ignored `_meta` values; missing rates stay unpriced. See [Nous local usage and spend](nous.md#local-usage-and-spend).
 
 The view stays local and does not upload usage history. Refreshes retain the last successful model if a replacement
 scan fails, while provider/account configuration changes replace obsolete results. Coverage text reports how many
@@ -94,7 +97,7 @@ complete when the available scan window covers fewer days.
 | Warp | API token (config/env) → GraphQL request limits (`api`). |
 | ElevenLabs | API key from config/env → subscription usage API (`api`). |
 | [Nous Portal](nous.md) | Read-only Hermes login or explicit access token → bundled plugin for monthly credits and top-up balances (`api`). |
-| [Muse Code](muse.md) | Existing CLI device-code login → bundled plugin for reported five-hour and weekly subscription quotas (`oauth`). |
+| [Muse Code](muse.md) | Existing CLI device-code login → bundled plugin for reported five-hour and weekly subscription quotas (`oauth`); opt-in `dev.meta.ai` browser-team quota for a user-selected team when the login response omits them (`oauth+web`). |
 | [CodeRabbit](coderabbit.md) | One bounded local CLI usage report for review counts and billing state (`cli`); no quota or balance is inferred. |
 | [Replicate](replicate.md) | Native Chrome cookie candidates or a manual header → bundled plugin for monthly spend and optional prepaid credits (`web`). |
 | [TypeSafe](typesafe.md) | Chrome cookies or a manual header → bundled plugin for billing spend and credit balance (`web`). |
@@ -153,7 +156,7 @@ complete when the available scan window covers fewer days.
 
 ## Codex
 - App Auto: OAuth API first; falls back to CLI only when OAuth credentials are missing or auth/refresh is invalid.
-- Web dashboard (optional, off by default): `https://chatgpt.com/codex/settings/usage` via WebView + browser cookies.
+- Web dashboard (optional, off by default): `https://chatgpt.com/codex/cloud/settings/analytics#usage` via WebView + browser cookies.
 - Battery saver toggle (currently off by default): reduces routine OpenAI web refreshes but still allows explicit manual refreshes.
 - CLI RPC default: `codex ... app-server` JSON-RPC (`account/read`, `account/rateLimits/read`).
 - CLI PTY: manual diagnostics/parser coverage only; automatic refresh does not launch bare Codex TUI.

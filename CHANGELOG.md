@@ -2,6 +2,29 @@
 
 ## 0.67.1 — Unreleased
 
+### Fixed
+
+- Mistral: accept a manual Cookie header in the Linux CLI, which refused it as macOS-only, so Linux shows the Included API and Vibe Monthly Plan allowances (#4024). Thanks @T0mSIlver!
+- Menu bar: prevent blank status-item slots after normal quit on macOS 26.6.2 while preserving saved icon positions (#4022). Fixes #4021. Thanks @mymatejackson and @giuseppebisemi!
+- Codex: resolve control socket symlinks when checking the running daemon, so System Account switches do not silently skip its restart (#3990, #4018). Thanks @massdo!
+- Venice: accept Clerk session cookies in Web and Manual modes, authenticate with a Bearer token, and explain active-tab recovery for expired sessions. Fixes #3940. Thanks @LachieFREEDOM!
+- Nous Portal: include Nous-billed OpenCodex ledger activity in Usage & Spend, preserving estimated or unpriced costs separately from Portal credits. Fixes #4008. Thanks @Reztahla!
+- Muse Code: optionally show the explicitly selected dev.meta.ai browser team’s quota when the login omits quotas, with cookies Off by default and team choices in settings (#4011). Fixes #4002. Thanks @enieuwy!
+### Added
+
+- Updates: offer one-click Homebrew cask upgrades from the menu and About while keeping Homebrew responsible for installation (#3994). Thanks @Yuxin-Qiao!
+- Web dashboard: choose Follow server, Used, or Remaining per browser, with persistent display preferences and consumption-based warnings (#4013). Fixes #3156. Thanks @andybergon!
+- Menu bar: add opt-in, bounded startup diagnostics for status-item creation and Control Center hosting investigations (#3377).
+
+### Changed
+
+- Settings: simplify menu bar layout controls while keeping token-removal instructions in the section footer (#3999). Thanks @elijahfriedman!
+
+### Fixed
+
+- Codex: open usage analytics from Usage Dashboard instead of the retired settings route. Fixes #4004. Thanks @RowboTony!
+- Settings: clarify that sidebar dots report provider service health and use gray until status is known. Fixes #4009. Thanks @harjothkhara and @jayn2u!
+
 ## 0.67.0 — 2026-09-25
 
 ### Highlights

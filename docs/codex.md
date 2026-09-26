@@ -84,6 +84,9 @@ Usage source picker:
 - After a successful System Account promotion, CodexBar restarts an already-running managed `codex app-server`
   daemon for the destination Codex home so it reloads the selected account. It checks the daemon PID, process command,
   and home-scoped control socket before running `codex app-server daemon restart` with that home's `CODEX_HOME`.
+  Both socket paths are resolved before comparison, including when the Codex home itself is a symlink. Codex's
+  control socket may point outside the home into its protected socket directory; it must match the destination
+  home's resolved socket. A dangling link does not bypass the CLI's running-daemon probe.
   Homes without a running daemon are left alone. If the installed CLI cannot verify or restart it (including older
   CLIs without daemon commands), the account remains switched and the menu/settings show a manual-restart note.
   Restarting the background server can interrupt its active work; no login flow runs.
@@ -137,7 +140,7 @@ and stable account numbers distinguish rows while usable workspace labels remain
 - OpenAI web battery saver is a separate toggle. When enabled, routine background/settings-driven refreshes are reduced, but explicit manual refreshes still run.
 - OpenAI web battery saver currently defaults to off.
 - Preferences → Providers → Codex → OpenAI cookies (Automatic or Manual).
-- URL: `https://chatgpt.com/codex/settings/usage`.
+- URL: `https://chatgpt.com/codex/cloud/settings/analytics#usage`.
 - Uses an off-screen `WKWebView` with a per-account `WKWebsiteDataStore`.
   - Store key: deterministic UUID from the normalized email.
 - WebKit store can hold multiple accounts concurrently.
