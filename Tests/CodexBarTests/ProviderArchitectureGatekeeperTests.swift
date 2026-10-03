@@ -156,9 +156,8 @@ struct ProviderArchitectureGatekeeperTests {
             Self.hash(descriptor.branding.burnDownWidgetColor, into: &burnDownFingerprint)
         }
 
-        // Hex normalization rounds ClinePass to #61A3FA; other widget components remain unchanged.
-        #expect(widgetFingerprint == 6_927_315_133_167_192_314)
-        #expect(burnDownFingerprint == 16_992_290_873_030_609_074)
+        #expect(widgetFingerprint == 3_878_775_502_287_979_115)
+        #expect(burnDownFingerprint == 7_180_157_240_092_109_793)
     }
 
     @Test
@@ -197,7 +196,7 @@ struct ProviderArchitectureGatekeeperTests {
     func `small provider capabilities preserve legacy registries`() {
         let descriptors = ProviderDescriptorRegistry.all
         #expect(Set(descriptors.filter(\.metadata.balanceOnly).map(\.id)) == [
-            .deepseek, .deepinfra, .moonshot, .poe, .hyper, .atlascloud, .vercel,
+            .deepseek, .deepinfra, .moonshot, .poe, .hyper, .atlascloud, .vercel, .lithosai,
         ])
         #expect(Set(descriptors.filter(\.metadata.usesDetailBackedWindow).map(\.id)) == [
             .perplexity,
