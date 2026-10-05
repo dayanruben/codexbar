@@ -141,6 +141,8 @@ be polled within the readiness deadline.
 
 - OAuth refresh form-encodes credential values, preserving literal plus signs, separators, and percent escapes.
 - Login still uses Antigravity's Google OAuth client, discovered from `Antigravity.app` or overridden with `ANTIGRAVITY_OAUTH_CLIENT_ID` and `ANTIGRAVITY_OAUTH_CLIENT_SECRET`.
+- Discovery reads the ID and secret initialized together in the language server's OAuth configuration. Antigravity 2.19.1 on Apple Silicon and Intel stores two clients in separately pooled strings; their order does not identify a pair. The first recognized configuration record wins deterministically. Older artifacts with a single pair remain supported; ambiguous artifacts without a recognized record are rejected.
+- If discovery fails or Google rejects the client with `invalid_client`, update Antigravity or set both overrides to a matching client ID and secret before retrying. These failures do not add or replace a saved account.
 - A successful login writes the latest shared credentials to `~/.codexbar/antigravity/oauth_creds.json` and upserts a token-account entry for the Google account.
 - Each token-account entry stores serialized `AntigravityOAuthCredentials` and is injected into remote fetches through `ANTIGRAVITY_OAUTH_CREDENTIALS_JSON`.
 - When a token account is selected, the OAuth fetcher uses that account before falling back to the shared credentials file.
@@ -414,7 +416,10 @@ affected models unpriced rather than failing the scan.
 
 Use `codexbar cost --provider antigravity --format json` to read this same local history from the CLI.
 The cost endpoint and dashboard also include it when Antigravity is selected. Known models receive local token ×
-public API-price estimates from the pricing catalog. Unknown models stay unpriced. These figures are not Antigravity
+public API-price estimates from the pricing catalog. Unknown models with tokens stay unpriced.
+Requests with no model and zero tokens still count for the day but add no model row. With pricing enabled,
+they count as estimated at $0; without pricing, their cost remains absent. Named zero-token rows are unchanged. A model-less zero-token day does not hide
+named unpriced model rows from other days. These figures are not Antigravity
 charges or credit deductions, and these entry points do not expand the supported timestamp layouts described below.
 Local reads use cached or built-in prices first. Routine catalog updates run in the background; `codexbar cost --provider antigravity --refresh` may wait for a bounded pricing refresh when a recorded model has no known rate. Empty or absent history never starts a pricing download. Historical requests use prices applicable to their event timestamps.
 
