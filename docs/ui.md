@@ -48,6 +48,7 @@ read_when:
   a valid previous position. Valid new positions remain untouched; unrelated defaults are never repaired by this path.
 - When Overview has selected providers, the switcher includes an Overview tab that renders up to 6 provider rows.
 - Overview row order follows provider order; selecting a row jumps to that provider detail card.
+- Overview uses native vertical scrolling when its menu exceeds the visible height. Fitted menus retain coarse-wheel provider highlighting; precise input and row submenus keep their native scrolling behavior. Scrolling after Command-R still prevents a pending refresh from resetting the viewport.
 - Menu → Overview layout offers Detailed (default) and Compact. Compact keeps provider/account headers and labeled quota bars, omits their reset/detail lines and supplemental sections, and retains detail-only providers. Select a provider for its full card. Visibility choices and the shared Usage & Spend summary continue to apply.
 - Menu-card wrappers use standard non-vibrant view behavior so white GPU-tinted Overview content remains visible on macOS 15. Overview selection stays outside the SwiftUI graph, with native submenu click and drag tracking retained.
 - The global open-menu keyboard shortcut toggles the currently tracked menu closed before opening a new one.
@@ -97,11 +98,19 @@ behind it, `0%` on pace. Each pace token reads its own window, so `Weekly pace` 
 unavailable, including the first 3% of a window. The weekly menu-bar pace token may appear after 1% of its weekly
 window has elapsed; session, automatic, and Runs out tokens keep the 3% threshold. See [Pace tracking](#pace-tracking).
 
+Choose **Pace sign** under **Menu Bar → Icon**, next to **Color Pace Indicator**:
+**Ahead of pace is +** (the default) shows deficits as positive and reserves as negative;
+**Reserve is +** shows reserves as positive and deficits as negative. This applies to Session, Weekly, and Auto pace
+tokens, including conditional layouts, and both live and sample layout previews. Zero stays `0%`, and unavailable
+pace stays an en dash. The menu card's reserve/deficit wording and the numeric meaning of saved conditional rules
+do not change: positive pace thresholds still mean usage ahead of pace.
+
 Enable **Color Pace Indicator** under **Menu Bar → Icon** to show usage behind pace (reserve) in green and usage ahead
 of pace (risk of running out early) in red. The option defaults off, applies to all three pace tokens and the layout
 preview, and keeps the signed percentages. Zero and unavailable pace stay neutral; stale pace colors are dimmed unless high-contrast rendering is active.
 It colors **Session pace**, **Weekly pace**, and **Auto pace** in the layout editor. Enabling it does not add tokens,
 rewrite stored layouts, or migrate legacy display modes. Existing installs stay monochrome until the option is enabled.
+These colors keep the same meaning with either pace sign: reserve is green and deficit is red.
 
 Enable **Color by provider** under **Menu Bar → Icon** to tint each provider slot with its accent color, including custom accents. This single toggle defaults off and works with Critters, Meter bars, and Icon & percent, including stacked provider rows; it never changes the saved layout or the Brand/Monochrome artwork used in Usage & Spend. Pace tokens keep their independent green/red colors and VoiceOver keeps the same spoken labels.
 
