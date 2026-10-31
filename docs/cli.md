@@ -54,6 +54,11 @@ See [Configuration](configuration.md) for the schema and [Providers](providers.m
 sources and setup guide. The [provider ID list](provider-ids.md) is generated from the registry;
 `codexbar config providers` lists providers and their configured enablement without fetching usage.
 
+Arguments are parsed strictly: unknown options, missing option values, and extra positional arguments
+fail before the command runs. For example, `codex-accounts promote` accepts one account identifier;
+a second identifier is an error. For an option value beginning with a dash, use the equals form
+(for example, `--output=-snapshot.json`).
+
 ## Command
 - `codexbar` defaults to the `usage` command.
   - Multi-provider usage fetches run up to three providers concurrently. Text, JSON, and diagnostics retain selection order; a failed provider does not prevent the others from finishing. Refreshed credentials share a command-scoped writer, while externally changed credentials remain protected.
@@ -171,6 +176,7 @@ sources and setup guide. The [provider ID list](provider-ids.md) is generated fr
   - Provider config is reloaded for each usage/cost request; cache entries are keyed by the loaded config so provider toggles and source changes do not require restarting `serve`.
   - Transient refresh failures fall back to the last good response for up to ten refresh intervals (minimum five minutes) so polling clients do not flicker between data and errors; disabled when `--refresh-interval 0`.
   - After a cached usage or cost response expires, `serve` returns the last-good response immediately while rebuilding it in the background. Dashboard snapshots wait for a rebuild after their normal refresh interval, including when returning to a previously cached used/remaining mode; request deadlines and last-good fallback on failure still apply. `--refresh-interval 0` keeps every request blocking.
+  - Add `refresh=1` to `/usage` or a full `/dashboard/v1/snapshot` request to wait for a new usage measurement inside the cache interval. Concurrent requests join an active measurement, and forced usage measurements wait at least five seconds between starts for each provider, including across those two endpoints. Normal authentication, deadlines, and last-good fallback still apply; shell-only dashboard requests remain metadata-only.
   - On glibc Linux, `serve` periodically returns freed heap pages to the operating system (30-second maintenance interval). Allocator arena settings remain controlled by the environment. macOS and musl keep their normal allocator behavior.
   - The default loopback bind rejects non-loopback `Host` headers; a configured non-loopback `--host` additionally accepts its own name. No CORS, TLS, or daemon mode.
   - Endpoints: `GET /` (web UI), `GET /health`, `GET /usage`, `GET /usage?provider=<id|both|all>`, `GET /cost`, `GET /cost?provider=<id|both|all>`, `GET /dashboard/v1/snapshot` (plus `provider=<id>` and `detail=<full|shell>`).
@@ -242,7 +248,9 @@ sources and setup guide. The [provider ID list](provider-ids.md) is generated fr
   `docs/configuration.md#external-event-hooks` for the event, payload, timeout, and security contract.
 - The macOS app and `hooks watch` emit `usage_updated` after a successful current refresh, throttled to at most
   one attempt per 600 seconds for each provider/account. Its primary and secondary positional quota windows include their cadence in
-  minutes. Synthetic placeholder windows are omitted.
+  minutes. Synthetic placeholder windows are omitted. When the provider reported a raw plan identifier, the same
+  payload also carries `plan`, `planSource`, and `planObservedAt`; see the sampled plan-observation contract in
+  `docs/configuration.md#external-event-hooks`.
 - `codexbar hooks watch` polls enabled providers and fires matching hooks on real quota and status transitions.
   Without it, hook rules only ever fire from the macOS app, so a headless install can configure hooks that never run.
   - `--interval <seconds>`: poll period. Default `300`, minimum `60`; a smaller value is rejected rather than
@@ -467,9 +475,11 @@ separate from quota percentages; zero is retained and unavailable or invalid bal
 ## Exit codes
 - 0: success
 - 2: provider missing (binary not on PATH)
-- 3: parse/format error
+- 3: provider response parse/format error
 - 4: CLI timeout
-- 1: unexpected failure
+- 1: command routing/argument error or unexpected failure
+
+`codexbar guard` uses `64` for invalid arguments; its other exit codes are listed above.
 
 For `codexbar dashboard`, `0` includes a valid partial snapshot whose provider rows contain errors. The command exits
 non-zero only when it cannot produce a valid snapshot document.
