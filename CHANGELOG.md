@@ -2,6 +2,61 @@
 
 ## 0.83.1 — Unreleased
 
+### Fixed
+
+- Claude: restore local cost history and source detection through symlinked project roots without counting shared roots twice.
+- Langdock: show saved Edge and Chrome profile names without translating custom names, and preserve the selected profile after renaming (#4911). Thanks @dYn36!
+- Claude: hide the session row when five-hour usage is absent, preserve weekly and model-specific quotas, and retain session warning history (#4914). Thanks @BobbyWang0120!
+- TypeSafe: restore billing spend and balance from the overview API, retain expired-session recovery, and stop browser imports after the first valid session (#4918, #4922). Thanks @LeoLin990405!
+- Grok: celebrate weekly resets only after the prior boundary has elapsed, preserve genuine resets, and suppress repeated or stale-sample celebrations across restarts (#4917, #4923). Thanks @LeoLin990405!
+- OpenCode Go: return unavailable cost history instead of an error when OpenCode is not installed locally, including on `codexbar serve` hosts tracking remote quota. (#4931) Thanks @VACInc!
+- Kiro: recover API usage with a valid CLI token and no stored profile, avoiding chat probes when the API supplies usable plan limits. (#4915) Thanks @Yuxin-Qiao!
+- Kiro: preserve the `+` in CLI-reported plan names so Pro+ subscriptions are shown as Kiro Pro+. (#4928) Thanks @jeanroloff!
+### Changed
+
+- Menu: dim retained quota and Code Review bars after their own refresh failures, while keeping successful fallback readings and separate credit/cost sections in their normal colors (#4883). Thanks @Chipagosfinest!
+- Menu: use tabular digits for usage and cost values to reduce movement when equal-length numbers change (#4884). Thanks @Chipagosfinest!
+
+- Settings: use native popup selectors while keeping imported custom choices visible (#4895). Thanks @elijahfriedman!
+### Added
+
+- Settings: find panes by title alongside provider names in sidebar search, with an empty state covering both (#4875). Thanks @elijahfriedman!
+
+- Menu bar: avoid applying each split icon twice when the loading animation is already stopped (#4208).
+- Menu bar: skip reset-display refreshes for hidden conditional branches, reducing unnecessary idle icon work (#4208).
+- WorkBuddy: accept the matching browser User-Agent with manual cookies, scoped to WorkBuddy billing requests and validated before cookie access (#4939, #4940). Thanks @michaellx1057!
+
+- Grok: count local tokens once per completed turn in `usage.json`, preserving daily attribution after compaction without adding the legacy session totals again (#4944). Thanks @Chipagosfinest!
+- Share: release the usage preview when its window closes and avoid building it twice on first open.
+- Cursor: reduce peak memory while reading large local usage CSV exports by processing lines without retaining a second split-line array.
+- Usage & Spend: prepare the detailed dashboard model on demand instead of retaining unused projections after background cost updates, while keeping Overview current.
+- OpenCode Go: reduce local-history refresh memory by aggregating requests incrementally and selecting billed parts and message fallbacks in one pass.
+- Plugins: reduce transient memory use by releasing retired runtimes when their fetches finish (#4486, #4512).
+- CLI: prune expired `serve` response variants during forced refreshes so configuration changes cannot retain obsolete snapshots indefinitely.
+- Codex: reduce CPU and SQLite reads during cost refreshes by reusing warm history through unchanged retention passes, including above the cache budget (#4620).
+- Claude: wait for the CLI's visible usage refresh to finish before settling quota capture, preserving later model-specific redraws (#4809). Thanks @DreamyTalesPAN!
+- AWS Bedrock: retain measured zero-cost days in daily billing history (#4846). Thanks @djbclark!
+- Menu bar: use the provider’s current window name for layout elements, so monthly Cursor Auto allowances no longer read as Weekly, while preserving default labels before usage is available (#4873, #4935). Thanks @roblight!
+- Settings: report protected CLI install destinations alongside successful links and link to installation help (#4929). Thanks @jack61714z!
+
+- Menu bar: include macOS 27's MenuBarAgent and startup recovery decisions in opt-in missing-icon diagnostics (#3377, #4506).
+- CLI: omit supplemental OpenAI dashboard caches older than one hour from Codex usage JSON, while tolerating sixty seconds of clock skew and preserving the shared cache (#4882). Thanks @Chipagosfinest!
+- Settings: hide provider sorting controls while the sidebar is collapsed and restore them when it reopens (#4872). Thanks @elijahfriedman!
+- Dashboard API: expose a fixed warning code when Claude's model breakdown is unavailable, preserving session and weekly quotas without forwarding provider notice text (#4809, #4877). Thanks @Chipagosfinest!
+- Bedrock: reuse bounded, account-scoped Cost Explorer results for periodic app usage and cost history for up to six hours, preserving original timestamps and fresh CLI usage requests (#4874). Thanks @djbclark!
+- Synthetic: show current weekly credit quotas and regeneration details while ignoring the retired subscription counter alongside known quota lanes. (#4871, #4885) Thanks @serialx and @baanish!
+- Neuralwatt: expose prepaid credit balances in provider cost JSON so balance consumers receive the remaining amount (#4870). Thanks @Josephur!
+- Tests: make plugin timeout and optional-request fixtures deterministic under loaded CI runners.
+- iCloud Sync: stop treating the Codex login as a local account for other providers, so a synced account with the same email is no longer hidden from their menus (#4869). Thanks @audichuang!
+- Cursor: retain local CSV usage when exports include a trailing customer cost column. (#4897) Thanks @Chipagosfinest!
+- CLI: reject `hooks watch --interval` values that overflow the sleep timer instead of crashing. (#4896) Thanks @Chipagosfinest!
+- CLI: reject malformed `cost --days` values instead of silently reporting a different time window. (#4893) Thanks @Chipagosfinest!
+- Plugins: keep HTTP timeouts and caller cancellation responsive when a transport's cancellation handler blocks (#4891, #4867). Thanks @akshat-khare and @Yuxin-Qiao!
+- Plugins: reuse one isolated HTTP session for user plugins to avoid per-request session teardown, and release request state on completion or cancellation (#4926).
+- Claude: recover background Auto usage after temporary CLI failures when Keychain access is disabled, with bounded retry delays. (#4907, #4908) Thanks @hy-ong!
+- CLI: document noninteractive browser access and the Keychain opt-out for dashboard and service launchers. (#4912, #4920) Thanks @vincent-peng and @LeoLin990405!
+- Cursor: read encrypted app sessions from the current `Cursor Key` and legacy Safe Storage accounts. (#4880, #4913) Thanks @vincent-peng and @SaahiilM!
+
 ## 0.83.0 — 2026-10-31
 
 ### Highlights
