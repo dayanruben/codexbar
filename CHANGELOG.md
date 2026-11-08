@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.84.1 — Unreleased
+
+### Added
+
+- Usage & Spend: add a Models view grouped by currency, preserve partial-history warnings, and match shared cards to the current appearance (#4889, #4888). Thanks @Chipagosfinest!
+- CLI: expose provider-owned setup routes for Copilot, OpenAI API, and Azure OpenAI, with explicit unknown guidance for other providers (#4705, #4916). Thanks @Yuxin-Qiao!
+- Devin: fall back to the desktop app session after browser sources, using only an existing silent Keychain grant and never prompting (#4905). Thanks @kentoku24!
+
+### Fixed
+
+- Ollama: support legacy API session and weekly balances while preserving monthly credits. (#5005, #5006) Thanks @Colafornia!
+- Mistral: recover from expired sessions that redirect to sign-in instead of returning HTTP 401/403. (#5000, #5002) Thanks @enieuwy!
+- Cursor: keep Manual credentials and local cost history account-scoped, preserve explicit unified-pool evidence, and use the current login route. (#4998) Thanks @Chipagosfinest!
+- Claude: show Enterprise extra-usage limits in the provider switcher while preserving provider identity boundaries. (#4989) Thanks @jey3dayo!
+- Alibaba: read Team CLI seat quotas, retain browser fallback for unavailable credits, and recognize mainland Qwen aliases. (#5008) Thanks @yinjialu!
+- Share Stats: replace faint provider markers with recognizable provider icons in light and dark cards. (#5011) Thanks @Chipagosfinest!
+
+### Changed
+
+- Claude: reduce local-history memory by sharing identical quota-event buffers while preserving independent reporting windows and cache validation (#5014).
+- Widgets: show provider logos and improve low-quota bar contrast without changing layouts or refresh behavior (#4887). Thanks @Chipagosfinest!
+
 ## 0.84.0 — 2026-11-06
 
 ### Highlights
